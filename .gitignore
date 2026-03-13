@@ -1,0 +1,11 @@
+venv/
+.env
+assets/
+output/
+__pycache__/
+node_modules/
+*.mp4
+*.mp3
+.gemini/
+.agent/
+.agents/
