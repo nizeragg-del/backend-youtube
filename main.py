@@ -6,6 +6,7 @@ from dotenv import load_dotenv # type: ignore
 from scripts.generate_script import generate_script # type: ignore
 from scripts.generate_voice import generate_voice, get_audio_duration # type: ignore
 from scripts.generate_images import generate_manus_image # type: ignore
+from scripts.upload_youtube import upload_to_youtube # type: ignore
 from supabase import create_client, Client # type: ignore
 
 if not os.path.exists(".env") and os.path.exists(".env.example"):
@@ -24,6 +25,9 @@ def run_pipeline(topic: str, user_id: str = ""):
     # Chaves de API
     manus_key = os.getenv("MANUS_API_KEY", "")
     typecast_key = os.getenv("TYPECAST_API_KEY", "")
+    yt_refresh = ""
+    yt_client_id = ""
+    yt_client_secret = ""
 
     if user_id and supabase_url and supabase_key:
         print(f"[Supabase] Buscando chaves para o usuário: {user_id}")
@@ -34,6 +38,9 @@ def run_pipeline(topic: str, user_id: str = ""):
                 config = response.data[0]
                 manus_key = config.get("manus_api_key") or manus_key
                 typecast_key = config.get("typecast_api_key") or typecast_key
+                yt_refresh = config.get("youtube_refresh_token", "")
+                yt_client_id = config.get("youtube_client_id", "")
+                yt_client_secret = config.get("youtube_client_secret", "")
                 print("[Supabase] Chaves do usuário carregadas com sucesso!")
             else:
                 print("[Supabase] ⚠️ Nenhuma configuração encontrada para este usuário. Usando chaves padrão.")
@@ -175,6 +182,22 @@ def run_pipeline(topic: str, user_id: str = ""):
         print("\n" + "=" * 40)
         print(f"🟢 SUCESSO! Vídeo gerado em: {video_out_path}")
         print("=" * 40)
+        
+        # PASSO Final - YouTube Upload (Opcional)
+        if yt_refresh and yt_client_id and yt_client_secret:
+            try:
+                upload_to_youtube(
+                    video_path=video_out_path,
+                    title=topic, # Usamos o tópico como título por enquanto
+                    description=f"Vídeo gerado automaticamente sobre: {topic}\n\n#evangelico #fe #esperanca",
+                    client_id=yt_client_id,
+                    client_secret=yt_client_secret,
+                    refresh_token=yt_refresh
+                )
+            except Exception as e:
+                print(f"🔴 Erro no upload para o YouTube: {e}")
+        else:
+            print("[YouTube] Pulando upload automático (Chaves não configuradas).")
     except subprocess.CalledProcessError as e:
         print("\n" + "=" * 40)
         print(f"🔴 ERRO na renderização do vídeo: {e}")
