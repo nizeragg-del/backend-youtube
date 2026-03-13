@@ -6,21 +6,46 @@ from dotenv import load_dotenv # type: ignore
 from scripts.generate_script import generate_script # type: ignore
 from scripts.generate_voice import generate_voice, get_audio_duration # type: ignore
 from scripts.generate_images import generate_manus_image # type: ignore
+from supabase import create_client, Client # type: ignore
 
 if not os.path.exists(".env") and os.path.exists(".env.example"):
     load_dotenv(".env.example")
 else:
     load_dotenv()
 
-def run_pipeline(topic: str):
+def run_pipeline(topic: str, user_id: str = ""):
     print("=" * 40)
     print(f"🎬 Iniciando automação (V8 Manus AI) para: {topic}")
     
-    # Debug de chaves
+    # Configuração Supabase
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") # Chave secreta para bypass RLS no Actions
+    
+    # Chaves de API
     manus_key = os.getenv("MANUS_API_KEY", "")
     typecast_key = os.getenv("TYPECAST_API_KEY", "")
-    print(f"[Config] Manus API Key: {'Configurada' if manus_key else 'AUSENTE'}")
-    print(f"[Config] Typecast API Key: {'Configurada' if typecast_key else 'AUSENTE'}")
+
+    if user_id and supabase_url and supabase_key:
+        print(f"[Supabase] Buscando chaves para o usuário: {user_id}")
+        try:
+            supabase: Client = create_client(supabase_url, supabase_key)
+            response = supabase.table("user_configs").select("*").eq("user_id", user_id).execute()
+            if response.data:
+                config = response.data[0]
+                manus_key = config.get("manus_api_key") or manus_key
+                typecast_key = config.get("typecast_api_key") or typecast_key
+                print("[Supabase] Chaves do usuário carregadas com sucesso!")
+            else:
+                print("[Supabase] ⚠️ Nenhuma configuração encontrada para este usuário. Usando chaves padrão.")
+        except Exception as e:
+            print(f"[Supabase] 🔴 Erro ao buscar chaves: {e}")
+    
+    # Sobrescrever envs para os sub-scripts usarem as chaves corretas
+    os.environ["MANUS_API_KEY"] = manus_key
+    os.environ["TYPECAST_API_KEY"] = typecast_key
+    
+    print(f"[Config] Manus API Key: {'Configurada (Usuário)' if user_id and manus_key else ('Configurada' if manus_key else 'AUSENTE')}")
+    print(f"[Config] Typecast API Key: {'Configurada (Usuário)' if user_id and typecast_key else ('Configurada' if typecast_key else 'AUSENTE')}")
     print("=" * 40)
     
     # Pastas de configuração
@@ -158,7 +183,8 @@ def run_pipeline(topic: str):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--topic", type=str, default="Mensagem de fé e esperança", help="O tópico do vídeo")
+    parser.add_argument("--topic", type=str, required=True)
+    parser.add_argument("--user_id", type=str, default="")
     args = parser.parse_args()
     
-    run_pipeline(args.topic)
+    run_pipeline(args.topic, args.user_id)

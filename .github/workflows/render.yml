@@ -7,6 +7,10 @@ on:
         description: 'Tema do vídeo'
         required: true
         default: 'A fé de Abraão'
+      user_id:
+        description: 'ID do Usuário (Supabase)'
+        required: false
+        default: ''
 
 jobs:
   render:
@@ -43,7 +47,9 @@ jobs:
         env:
           MANUS_API_KEY: ${{ secrets.MANUS_API_KEY }}
           TYPECAST_API_KEY: ${{ secrets.TYPECAST_API_KEY }}
-        run: python main.py --topic "${{ github.event.inputs.topic }}"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python main.py --topic "${{ github.event.inputs.topic }}" --user_id "${{ github.event.inputs.user_id }}"
 
       - name: Upload Video
         uses: actions/upload-artifact@v4
