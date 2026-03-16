@@ -94,19 +94,23 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                         return "\n".join([extract_text(i, visited) for i in obj if i])
                     
                     if isinstance(obj, dict):
-                        # CHAVES PROIBIDAS - Nunca extrair texto de campos de entrada/config
-                        keys_to_ignore = ["prompt", "agentProfile", "headers", "payload", "input", "task_id", "status", "created_at", "config"]
+                        # CHAVES PROIBIDAS - Nunca extrair texto de campos de entrada ou metadados
+                        keys_to_ignore = [
+                            "prompt", "agentProfile", "headers", "payload", "input", "task_id", "status", 
+                            "created_at", "config", "query", "user_prompt", "system_prompt", "instruction"
+                        ]
                         
-                        # Tenta campos de saída conhecidos primeiro
-                        for k in ["content", "output", "result", "text", "message", "answer"]:
+                        # PRIORIDADE: Buscar campos que costumam conter a resposta real
+                        for k in ["output", "result", "content", "text", "message", "answer"]:
                             if k in obj and obj[k] and k not in keys_to_ignore:
+                                # Se o campo for um dicionário, mergulhamos nele
                                 res = extract_text(obj[k], visited)
                                 if res: return res
                         
-                        # Se não achou nos campos óbvios, concatena o resto
+                        # Se não achou nos campos óbvios, concatena o resto de forma segura
                         parts = []
                         for k, v in obj.items():
-                            if k not in keys_to_ignore:
+                            if k.lower() not in keys_to_ignore:
                                 part = extract_text(v, visited)
                                 if part: parts.append(part)
                         return "\n".join(parts)
@@ -116,61 +120,77 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                 raw_text = extract_text(status_data)
                 
                 print(f"[Manus AI Debug] Tamanho do texto bruto extraído: {len(raw_text)}")
-                if len(raw_text) > 0:
-                    print(f"[Manus AI Debug] Primeiros 200 caracteres: {raw_text[:200]}...")
-
-                # Extração Resiliente usando findall para pegar o ÚLTIMO (geralmente o output, não a instrução do prompt)
-                scripts_found = re.findall(r"<roteiro>(.*?)</roteiro>", raw_text, re.DOTALL | re.IGNORECASE)
-                images_found = re.findall(r"<imagens>(.*?)</imagens>", raw_text, re.DOTALL | re.IGNORECASE)
+                
+                # Regex mais rigorosa para capturar as tags
+                # Evita capturar a instrução "<roteiro> e </roteiro>" exigindo que tenha conteúdo significativo
+                scripts_found = re.findall(r"<roteiro>\s*(.{10,})\s*</roteiro>", raw_text, re.DOTALL | re.IGNORECASE)
+                images_found = re.findall(r"<imagens>\s*(.{10,})\s*</imagens>", raw_text, re.DOTALL | re.IGNORECASE)
                 
                 extracted_text = ""
                 image_prompts = []
 
                 if scripts_found:
-                    extracted_text = scripts_found[-1].strip() # Pega o último match
-                    print(f"[Manus AI] Tag <roteiro> encontrada ({len(scripts_found)} ocorrências). Usando a última.")
+                    extracted_text = scripts_found[-1].strip() # Pega o último match (geralmente o output final)
+                    print(f"[Manus AI] Tag <roteiro> encontrada ({len(scripts_found)} ocorrências).")
                 else:
-                    print("[Manus AI] Aviso: Tag <roteiro> não encontrada. Usando texto bruto.")
-                    extracted_text = raw_text
+                    print("[Manus AI] Aviso: Tag <roteiro> não encontrada. Analisando texto bruto...")
+                    # Se não tem tag, mas o texto é grande, tentamos limpar o que parece ser o prompt
+                    if len(raw_text) > 500:
+                        # Remove eventuais repetições do prompt inicial se existirem
+                        extracted_text = raw_text
+                    else:
+                        extracted_text = raw_text
 
                 if images_found:
                     raw_images_text = images_found[-1].strip()
-                    raw_images = raw_images_text.split("\n")
-                    image_prompts = [img.strip() for img in raw_images if img.strip() and len(img) > 10]
+                    # Separa por quebra de linha ou vírgulas se o modelo bagunçou
+                    raw_images = re.split(r'\n|,', raw_images_text)
+                    image_prompts = [img.strip() for img in raw_images if len(img.strip()) > 10]
                     # Limpa números e prefixos (ex: "1. ", "2- ")
-                    image_prompts = [re.sub(r'^\d+[\.\-\)]\s*', '', p) for p in image_prompts]
+                    image_prompts = [re.sub(r'^\s*\d+[\.\-\)]\s*', '', p) for p in image_prompts]
                     image_prompts = image_prompts[:10]
                     print(f"[Manus AI] Tag <imagens> encontrada: {len(image_prompts)} prompts extraídos.")
                 else:
-                    print("[Manus AI] Aviso: Tag <imagens> não encontrada.")
+                    # Tenta extrair linhas que parecem prompts mesmo sem tag
+                    print("[Manus AI] Aviso: Tag <imagens> não encontrada. Tentando extração heurística...")
+                    heuristic_prompts = re.findall(r"(?:image prompt|prompt|scene|cena)\s*\d*[:\-]?\s*(.*)", raw_text, re.IGNORECASE)
+                    if heuristic_prompts:
+                        image_prompts = [p.strip() for p in heuristic_prompts if len(p.strip()) > 15][:10]
+                        print(f"[Manus AI] Heurística: {len(image_prompts)} prompts extraídos.")
 
-                # Limpeza do Roteiro - Simplificada para evitar deletar tudo
+                # Limpeza do Roteiro
                 lines = extracted_text.split("\n")
                 cleaned_lines = []
                 for line in lines:
                     l = line.strip()
-                    if not l: continue
+                    if not l or len(l) < 3: continue
                     upper_l = l.upper()
                     
-                    # Remove apenas linhas que são puramente tags ou avisos de instrução
-                    skip_patterns = ["<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>"]
-                    if any(x == upper_l for x in skip_patterns):
+                    # Remove linhas de instrução ou tags residuais
+                    skip_patterns = ["<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>", "INSTRUÇÕES", "ESTRUTURA"]
+                    if any(x in upper_l for x in skip_patterns):
                         continue
                     
+                    # Se a linha for idêntica ao tópico, pulamos
+                    if topic.lower() in l.lower() and len(l) < len(topic) + 20:
+                        continue
+
                     l = l.replace("**", "").replace("#", "").strip()
                     cleaned_lines.append(str(l))
                 
                 final_text = "\n".join(cleaned_lines).strip()
                 
-                # Validação de Fallback
-                if len(final_text) < 150 and not scripts_found:
-                    print("[Manus AI] Roteiro muito curto e sem tags. Ativando fallback.")
+                # Validação Crítica
+                if len(final_text) < 150:
+                    print(f"[Manus AI] Roteiro final ({len(final_text)} chars) muito curto. Ativando fallback...")
                     final_text = fallback_script()
-
-                print(f"[Manus AI] Roteiro finalizado com {len(final_text)} caracteres e {len(image_prompts)} prompts de imagem.")
                 
+                if not image_prompts:
+                    print("[Manus AI] Sem prompts de imagem detectados. Gerando lista básica...")
+                    image_prompts = ["Cinematic scene about faith", "Epic biblical landscape", "Spiritual light and peace"]
+
                 return {
-                    "text": final_text.strip(),
+                    "text": final_text,
                     "image_prompts": image_prompts
                 }
             elif status == "failed" or status == "ERROR":
