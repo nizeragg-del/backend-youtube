@@ -33,19 +33,26 @@ def run_pipeline(topic: str, user_id: str = ""):
         print(f"[Supabase] Buscando chaves para o usuário: {user_id}")
         try:
             supabase: Client = create_client(supabase_url, supabase_key)
-            response = supabase.table("user_configs").select("*").eq("user_id", user_id).execute()
+            # Chamamos a RPC que descriptografa as chaves no banco
+            response = supabase.rpc("get_user_secrets", {"p_user_id": user_id}).execute()
+            
             if response.data:
-                config = response.data[0]
+                config = response.data # RPC costuma retornar o objeto direto ou lista
+                if isinstance(config, list): config = config[0]
+                
                 manus_key = config.get("manus_api_key") or manus_key
                 typecast_key = config.get("typecast_api_key") or typecast_key
-                yt_refresh = config.get("youtube_refresh_token", "")
+                yt_refresh = config.get("youtube_refresh_token") or ""
+                
+                # YouTube Client ID/Secret continuam globais se não fornecidos
                 yt_client_id = config.get("youtube_client_id") or os.getenv("YOUTUBE_CLIENT_ID", "")
                 yt_client_secret = config.get("youtube_client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET", "")
-                print("[Supabase] Chaves do usuário carregadas com sucesso!")
+                
+                print("[Supabase] 🔐 Chaves descriptografadas carregadas com sucesso!")
             else:
                 yt_client_id = os.getenv("YOUTUBE_CLIENT_ID", "")
                 yt_client_secret = os.getenv("YOUTUBE_CLIENT_SECRET", "")
-                print("[Supabase] ⚠️ Nenhuma configuração encontrada para este usuário. Usando chaves padrão.")
+                print("[Supabase] ⚠️ Nenhuma configuração encontrada ou erro na descriptografia. Usando defaults.")
         except Exception as e:
             print(f"[Supabase] 🔴 Erro ao buscar chaves: {e}")
     
