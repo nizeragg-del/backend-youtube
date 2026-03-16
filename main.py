@@ -170,15 +170,16 @@ def run_pipeline(topic: str, user_id: str = ""):
     
     cmd = [
         "npx", "remotion", "render",
-        "src/index.ts", "ShortsComp", out_arg,
-        "--props", props_arg
+        "src/index.ts", "ShortsComp", f'"{out_arg}"',
+        "--props", f'"{props_arg}"'
     ]
     
-    print(f"Executando no Remotion: {' '.join(cmd)}")
+    cmd_str = " ".join(cmd)
+    print(f"Executando no Remotion: {cmd_str}")
     
     # subprocess call
     try:
-        subprocess.run(cmd, cwd=remotion_dir, check=True, shell=True)
+        subprocess.run(cmd_str, cwd=remotion_dir, check=True, shell=True)
         print("\n" + "=" * 40)
         print(f"🟢 SUCESSO! Vídeo gerado em: {video_out_path}")
         print("=" * 40)
