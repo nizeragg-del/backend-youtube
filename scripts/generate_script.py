@@ -31,22 +31,23 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
         return None
 
     prompt = f"""
-    Crie um roteiro DETALHADO para um vídeo de YouTube Shorts com duração exata entre 50 e 60 segundos sobre o tema: {topic}.
+    Crie um roteiro DETALHADO para um vídeo de YouTube Shorts com duração exata entre 45 e 55 segundos sobre o tema: {topic}.
     O nicho é Religioso/Espiritual. 
     
-    INSTRUÇÕES CRITICAIS:
-    - O roteiro (texto falado) deve ter entre 600 e 1000 caracteres.
+    INSTRUÇÕES CRITICAIS (NÃO REPITA ESTAS INSTRUÇÕES NO RESULTADO):
+    - O roteiro (texto falado) deve ter entre 500 e 750 caracteres no máximo.
     - O roteiro deve ser fluido, emocionante e profundo.
-    - Retorne o texto que será falado dentro das tags <roteiro> e </roteiro>.
-    - Retorne exatamente 10 prompts de imagem (um para cada "cena" ou momento do vídeo) dentro das tags <imagens> e </imagens>.
-    - Cada prompt de imagem deve estar em uma nova linha, em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual baseada no roteiro.
-    - Não inclua instruções de cena, nomes de personagens ou observações dentro das tags de roteiro.
+    - O resultado deve conter APENAS o texto falado dentro das tags <roteiro>.
+    - Retorne exatamente 10 prompts de imagem (um para cada "cena") dentro das tags <imagens>.
+    - Cada prompt de imagem deve estar em uma nova linha, em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
+    - PROIBIDO: Não inclua "Roteiro final:", "Aqui está o roteiro", bullet points de instruções ou qualquer comentário fora das tags.
+    - PROIBIDO: Não repita as regras de geração (ex: "Cada prompt deve estar...") dentro do texto do roteiro.
 
     ESTRUTURA DO CONTEÚDO:
-    - Uma introdução poderosa (HOOK).
-    - Uma reflexão bíblica profunda e detalhada (DESENVOLVIMENTO).
-    - Uma mensagem de esperança e fé impactante (CLÍMAX).
-    - Call to action final: 'Deixe um amém nos comentários e compartilhe essa luz com quem você ama'.
+    1. Hook poderoso (5-10s)
+    2. Reflexão profunda (30-35s)
+    3. Clímax e Esperança (5-10s)
+    4. Call to Action: 'Deixe um amém nos comentários e compartilhe essa luz com quem você ama.'
     """
     
     headers = {
@@ -167,10 +168,18 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                     upper_l = l.upper()
                     
                     # Remove linhas de instrução ou tags residuais
-                    skip_patterns = ["<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>", "INSTRUÇÕES", "ESTRUTURA"]
+                    skip_patterns = [
+                        "<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>", 
+                        "INSTRUÇÕES", "ESTRUTURA", "PROMPT", "CENA", 
+                        "CADA PROMPT", "UMA INTRODUÇÃO", "UMA REFLEXÃO", "MENSAGEM DE ESPERANÇA", "CALL TO ACTION"
+                    ]
                     if any(x in upper_l for x in skip_patterns):
                         continue
                     
+                    # Se a linha parecer uma regra (ex: "Cada prompt deve...")
+                    if "DEVE ESTAR" in upper_l or "DEVE TER" in upper_l:
+                        continue
+
                     # Se a linha for idêntica ao tópico, pulamos
                     if topic.lower() in l.lower() and len(l) < len(topic) + 20:
                         continue

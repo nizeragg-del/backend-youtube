@@ -56,27 +56,47 @@ def generate_manus_image(prompt, index, output_dir):
             
             status = status_data.get("status") or status_data.get("task_status")
             if status in ["completed", "DONE"]:
-                # Extração da URL (procura por padrões de URL na resposta)
-                import re
-                result_text = str(status_data.get("result", "") or status_data.get("output", ""))
-                url_match = re.search(r'(https?://\S+\.(?:png|jpg|jpeg|webp|gif))', result_text, re.IGNORECASE)
+                # Extração Robusta de URL (procura recursiva)
+                def find_image_url(obj):
+                    if isinstance(obj, str):
+                        import re
+                        match = re.search(r'(https?://\S+\.(?:png|jpg|jpeg|webp|gif))', obj, re.IGNORECASE)
+                        return match.group(1) if match else None
+                    if isinstance(obj, list):
+                        for item in obj:
+                            url = find_image_url(item)
+                            if url: return url
+                    if isinstance(obj, dict):
+                        for k, v in obj.items():
+                            if k not in ["prompt", "agentProfile"]: # Ignora campos de entrada
+                                url = find_image_url(v)
+                                if url: return url
+                    return None
+
+                image_url = find_image_url(status_data)
                 
-                if url_match:
-                    image_url = url_match.group(1)
+                if image_url:
                     print(f"[Manus AI Image] Imagem {index} gerada: {image_url}")
                     
                     # Download da imagem
-                    img_resp = requests.get(image_url)
-                    img_resp.raise_for_status()
-                    
-                    filename = f"scene_{index}.png"
-                    local_path = os.path.join(output_dir, filename)
-                    with open(local_path, "wb") as f:
-                        f.write(img_resp.content)
-                    
-                    return f"assets/images/{filename}"
+                    try:
+                        img_resp = requests.get(image_url, timeout=30)
+                        img_resp.raise_for_status()
+                        
+                        filename = f"scene_{index}.png"
+                        local_path = os.path.join(output_dir, filename)
+                        with open(local_path, "wb") as f:
+                            f.write(img_resp.content)
+                        
+                        return f"assets/images/{filename}"
+                    except Exception as e:
+                        print(f"[Manus AI Image] Erro ao baixar imagem {index}: {e}")
+                        return None
                 else:
-                    print(f"[Manus AI Image] Aviso: Tarefa concluída mas URL não encontrada no resultado: {result_text[:100]}...")
+                    print(f"[Manus AI Image] Aviso: Tarefa concluída mas URL não encontrada no resultado.")
+                    # Log resumido do resultado para debug se falhar
+                    debug_str = str(status_data)[:500]
+                    print(f"[Manus AI Image Debug] Resumo do resultado: {debug_str}...")
                     return None
             elif status in ["failed", "ERROR"]:
                 print(f"[Manus AI Image] Falha na tarefa {task_id}: {status_data.get('message')}")
