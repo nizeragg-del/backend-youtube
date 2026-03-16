@@ -39,10 +39,12 @@ def run_pipeline(topic: str, user_id: str = ""):
                 manus_key = config.get("manus_api_key") or manus_key
                 typecast_key = config.get("typecast_api_key") or typecast_key
                 yt_refresh = config.get("youtube_refresh_token", "")
-                yt_client_id = config.get("youtube_client_id", "")
-                yt_client_secret = config.get("youtube_client_secret", "")
+                yt_client_id = config.get("youtube_client_id") or os.getenv("YOUTUBE_CLIENT_ID", "")
+                yt_client_secret = config.get("youtube_client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET", "")
                 print("[Supabase] Chaves do usuário carregadas com sucesso!")
             else:
+                yt_client_id = os.getenv("YOUTUBE_CLIENT_ID", "")
+                yt_client_secret = os.getenv("YOUTUBE_CLIENT_SECRET", "")
                 print("[Supabase] ⚠️ Nenhuma configuração encontrada para este usuário. Usando chaves padrão.")
         except Exception as e:
             print(f"[Supabase] 🔴 Erro ao buscar chaves: {e}")
