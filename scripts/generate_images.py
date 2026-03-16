@@ -10,18 +10,21 @@ if os.path.exists(env_path):
     load_dotenv(env_path)
 
 MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.ai/v1/tasks")
-MANUS_API_KEY = os.getenv("MANUS_API_KEY", "")
+
+def get_manus_key():
+    return os.getenv("MANUS_API_KEY", "")
 
 def generate_manus_image(prompt, index, output_dir):
     """
     Solicita a criação de uma imagem ao Manus AI e faz o download.
     """
-    if not MANUS_API_KEY:
+    manus_key = get_manus_key()
+    if not manus_key:
         print("[Manus AI Image] Erro: MANUS_API_KEY não configurada.")
         return None
 
     headers = {
-        "API_KEY": MANUS_API_KEY,
+        "API_KEY": manus_key,
         "Content-Type": "application/json"
     }
     
