@@ -34,21 +34,19 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
     Crie um roteiro DETALHADO para um vídeo de YouTube Shorts com duração exata entre 45 e 55 segundos sobre o tema: {topic}.
     O nicho é Religioso/Espiritual. 
     
-    INSTRUÇÕES CRITICAIS (NÃO REPITA ESTAS INSTRUÇÕES NO RESULTADO):
-    - O roteiro (texto falado) deve ter entre 500 e 750 caracteres no máximo.
-    - O roteiro deve ser fluido, emocionante e profundo.
-    - O resultado deve conter APENAS o texto falado dentro das tags <roteiro>.
-    - Retorne exatamente 10 prompts de imagem (um para cada "cena") dentro das tags <imagens>.
-    - Cada prompt de imagem deve estar em uma nova linha, em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
-    - PROIBIDO: Não inclua "Roteiro final:", "Aqui está o roteiro", bullet points de instruções ou qualquer comentário fora das tags.
-    - PROIBIDO: Não repita as regras de geração (ex: "Cada prompt deve estar...") dentro do texto do roteiro.
-    - PROIBIDO: SEM CONVERSA OU INTRODUÇÃO. Nunca inicie dizendo "Entendido", "Aqui está", "Vou criar o roteiro". O primeiro caractere dentro da tag DEVE ser a primeira palavra da narração do vídeo.
-
+    INSTRUÇÕES CRITICAIS E OBRIGATÓRIAS:
+    - VOCÊ DEVE RESPONDER EXCLUSIVAMENTE COM UM CÓDIGO JSON VÁLIDO. 
+    - O JSON deve conter apenas uma chave principal chamada "scenes", contendo uma lista com exatamente 10 objetos.
+    - Cada objeto da lista "scenes" deve ter:
+      * "text": A fala exata do locutor daquela cena (1 ou 2 frases fluídas, sem numeração).
+      * "image_prompt": O prompt da imagem para aquela cena, escrito em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
+    - A soma do campo "text" de todas as 10 cenas deve ter entre 500 e 750 caracteres no máximo.
+    - PROIBIDO: Não inclua "Roteiro final:", cumprimentos, ou formato markdown fora do JSON.
+    
     ESTRUTURA DO CONTEÚDO:
-    1. Hook poderoso (5-10s)
-    2. Reflexão profunda (30-35s)
-    3. Clímax e Esperança (5-10s)
-    4. Call to Action: 'Deixe um amém nos comentários e compartilhe essa luz com quem você ama.'
+    - Cena 1 a 2: Hook poderoso.
+    - Cena 3 a 8: Reflexão profunda.
+    - Cena 9 a 10: Clímax e Call to Action ('Deixe um amém nos comentários e compartilhe essa luz com quem você ama.').
     """
     
     headers = {
@@ -85,132 +83,55 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
             if status == "completed" or status == "DONE":
                 print("[Manus AI] Roteiro e prompts de imagem gerados!")
                 
-                def extract_text(obj, visited=None):
-                    if visited is None: visited = set()
-                    if id(obj) in visited: return ""
-                    visited.add(id(obj))
-
-                    if not obj: return ""
-                    if isinstance(obj, str): return obj.strip()
-                    if isinstance(obj, list): 
-                        return "\n".join([extract_text(i, visited) for i in obj if i])
-                    
-                    if isinstance(obj, dict):
-                        # CHAVES PROIBIDAS - Nunca extrair texto de campos de entrada ou metadados
-                        keys_to_ignore = [
-                            "prompt", "agentProfile", "headers", "payload", "input", "task_id", "status", 
-                            "created_at", "config", "query", "user_prompt", "system_prompt", "instruction"
-                        ]
-                        
-                        # PRIORIDADE: Buscar campos que costumam conter a resposta real
-                        for k in ["output", "result", "content", "text", "message", "answer"]:
-                            if k in obj and obj[k] and k not in keys_to_ignore:
-                                # Se o campo for um dicionário, mergulhamos nele
-                                res = extract_text(obj[k], visited)
-                                if res: return res
-                        
-                        # Se não achou nos campos óbvios, concatena o resto de forma segura
-                        parts = []
-                        for k, v in obj.items():
-                            if k.lower() not in keys_to_ignore:
-                                part = extract_text(v, visited)
-                                if part: parts.append(part)
-                        return "\n".join(parts)
-                    return "" 
-
-                # Tenta extrair de várias fontes
-                raw_text = extract_text(status_data)
+                import json
                 
-                print(f"[Manus AI Debug] Tamanho do texto bruto extraído: {len(raw_text)}")
+                # Tenta extrair a string completa do JSON a partir dos dados retornados
+                # Como solicitamos exclusivamente JSON, podemos tentar pegar o output e fazer dumps/loads
+                # ou usar regex para localizar as chaves
                 
-                # Regex mais rigorosa para capturar as tags
-                # Evita capturar a instrução "<roteiro> e </roteiro>" exigindo que tenha conteúdo significativo
-                scripts_found = re.findall(r"<roteiro>\s*(.{10,})\s*</roteiro>", raw_text, re.DOTALL | re.IGNORECASE)
-                images_found = re.findall(r"<imagens>\s*(.{10,})\s*</imagens>", raw_text, re.DOTALL | re.IGNORECASE)
-                
-                extracted_text = ""
-                image_prompts = []
-
-                if scripts_found:
-                    extracted_text = scripts_found[-1].strip() # Pega o último match (geralmente o output final)
-                    print(f"[Manus AI] Tag <roteiro> encontrada ({len(scripts_found)} ocorrências).")
-                else:
-                    print("[Manus AI] Aviso: Tag <roteiro> não encontrada. Analisando texto bruto...")
-                    # Se não tem tag, mas o texto é grande, tentamos limpar o que parece ser o prompt
-                    if len(raw_text) > 200:
-                        # Em muitos casos o Manus divide com "Roteiro final:" ou afins
-                        match = re.search(r'(?i)(roteiro final|texto falado|roteiro_final)[\s:\(0-9caractes\)]*(.*)', raw_text, re.DOTALL)
-                        if match:
-                            extracted_text = match.group(2)
-                        else:
-                            extracted_text = raw_text
+                # Tentar achar output cru que seria a resposta textual da IA
+                raw_text = status_data.get("output", "")
+                if not raw_text:
+                    if "result" in status_data: 
+                        raw_text = str(status_data["result"])
                     else:
-                        extracted_text = raw_text
+                        # Extração de segurança em todos os campos recursivamente se não vier nas chaves padrões
+                        def scrape_all_text(d):
+                            if isinstance(d, dict):
+                                return " ".join(scrape_all_text(v) for k, v in d.items() if k not in ['prompt', 'input', 'task_id'])
+                            elif isinstance(d, list):
+                                return " ".join(scrape_all_text(x) for x in d)
+                            elif isinstance(d, str):
+                                return d
+                            return ""
+                        raw_text = scrape_all_text(status_data)
 
-                if images_found:
-                    raw_images_text = images_found[-1].strip()
-                    # Separa por quebra de linha ou vírgulas se o modelo bagunçou
-                    raw_images = re.split(r'\n|,', raw_images_text)
-                    image_prompts = [img.strip() for img in raw_images if len(img.strip()) > 10]
-                    # Limpa números e prefixos (ex: "1. ", "2- ")
-                    image_prompts = [re.sub(r'^\s*\d+[\.\-\)]\s*', '', p) for p in image_prompts]
-                    image_prompts = image_prompts[:10]
-                    print(f"[Manus AI] Tag <imagens> encontrada: {len(image_prompts)} prompts extraídos.")
-                else:
-                    # Tenta extrair linhas que parecem prompts mesmo sem tag
-                    print("[Manus AI] Aviso: Tag <imagens> não encontrada. Tentando extração heurística...")
-                    heuristic_prompts = re.findall(r"(?:image prompt|prompt|scene|cena)\s*\d*[:\-]?\s*(.*)", raw_text, re.IGNORECASE)
-                    if heuristic_prompts:
-                        image_prompts = [p.strip() for p in heuristic_prompts if len(p.strip()) > 15][:10]
-                        print(f"[Manus AI] Heurística: {len(image_prompts)} prompts extraídos.")
-
-                # Limpeza do Roteiro
-                lines = extracted_text.split("\n")
-                cleaned_lines = []
-                for line in lines:
-                    l = line.strip()
-                    if not l or len(l) < 3: continue
-                    upper_l = l.upper()
-                    
-                    # Remove linhas de instrução ou tags residuais
-                    skip_patterns = [
-                        "<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>", 
-                        "INSTRUÇÕES", "ESTRUTURA", "PROMPT", "CENA", 
-                        "CADA PROMPT", "UMA INTRODUÇÃO", "UMA REFLEXÃO", "MENSAGEM DE ESPERANÇA", "CALL TO ACTION",
-                        "HOOK PODEROSO", "REFLEXÃO PROFUNDA", "CLÍMAX E ESPERANÇA", "ROTEIRO FINAL"
-                    ]
-                    if any(x in upper_l for x in skip_patterns):
-                        continue
-                    
-                    # Remover falas iniciais do robô
-                    if upper_l.startswith("ENTENDIDO") or upper_l.startswith("AQUI ESTÁ") or upper_l.startswith("CLARO") or upper_l.startswith("VOU CRIAR") or upper_l.startswith("AQUI ESTA") or "SEGUINDO TODAS AS SUAS" in upper_l or "SEGUINDO SUAS ESPECIF" in upper_l:
-                        continue
-                    
-                    # Ignorar metadados de API (tags de mensagem, assistant, IDs aleatórios)
-                    if l.lower() in ['assistant', 'message', 'user', 'system']:
-                        continue
-                        
-                    # Ignorar strings longas sem espaço (provavelmente IDs)
-                    if len(l) > 15 and " " not in l:
-                        continue
-                        
-                    # Se a linha parecer uma regra (ex: "Cada prompt deve...")
-                    if "DEVE ESTAR" in upper_l or "DEVE TER" in upper_l:
-                        continue
-
-                    # Ignorar linhas numeradas que parecem tópicos como "1. Hook poderoso (5-10s)"
-                    import re
-                    if re.match(r'^\d+\.\s*(?:Hook|Reflexão|Clímax|Call to Action)', l, re.IGNORECASE):
-                        continue
-
-                    # Se a linha for idêntica ao tópico, pulamos
-                    if topic.lower() in l.lower() and len(l) < len(topic) + 20:
-                        continue
-
-                    l = l.replace("**", "").replace("#", "").strip()
-                    cleaned_lines.append(str(l))
+                # Busca um bloco que pareça ser um JSON contendo {"scenes": [...]}
+                match = re.search(r'(\{.*"scenes".*\})', raw_text, re.DOTALL | re.IGNORECASE)
                 
-                final_text = "\n".join(cleaned_lines).strip()
+                final_text = ""
+                image_prompts = []
+                
+                if match:
+                    json_str = match.group(1)
+                    try:
+                        parsed = json.loads(json_str)
+                        scenes = parsed.get("scenes", [])
+                        
+                        scripts = []
+                        for s in scenes:
+                            scripts.append(s.get("text", "").strip())
+                            image_prompts.append(s.get("image_prompt", "").strip())
+                            
+                        final_text = " ".join(scripts).strip()
+                        print(f"[Manus AI] JSON parseado com sucesso! {len(scenes)} cenas extraídas.")
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"[Manus AI] Erro no parser do JSON: {e}")
+                
+                if not final_text:
+                    print("[Manus AI] Falha ao extrair via JSON. Tentando fallback heurístico...")
+                    final_text = fallback_script()
                 
                 # Validação Crítica
                 if len(final_text) < 150:
