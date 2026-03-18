@@ -90,10 +90,10 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                 # ou usar regex para localizar as chaves
                 
                 # Tentar achar output cru que seria a resposta textual da IA
-                raw_text = status_data.get("output", "")
+                raw_text = status_data.get("output")
                 if not raw_text:
                     if "result" in status_data: 
-                        raw_text = str(status_data["result"])
+                        raw_text = status_data["result"]
                     else:
                         # Extração de segurança em todos os campos recursivamente se não vier nas chaves padrões
                         def scrape_all_text(d):
@@ -105,6 +105,13 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                                 return d
                             return ""
                         raw_text = scrape_all_text(status_data)
+
+                # Garante que raw_text seja uma string com aspas duplas de JSON
+                if not isinstance(raw_text, str):
+                    try:
+                        raw_text = json.dumps(raw_text, ensure_ascii=False)
+                    except Exception:
+                        raw_text = str(raw_text)
 
                 # Busca um bloco que pareça ser um JSON contendo {"scenes": [...]}
                 match = re.search(r'(\{.*"scenes".*\})', raw_text, re.DOTALL | re.IGNORECASE)
