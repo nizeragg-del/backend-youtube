@@ -42,6 +42,7 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
       * "image_prompt": O prompt da imagem para aquela cena, escrito em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
     - A soma do campo "text" de todas as 10 cenas deve ter entre 500 e 750 caracteres no máximo.
     - PROIBIDO: Não inclua "Roteiro final:", cumprimentos, ou formato markdown fora do JSON.
+    - PROIBIDO: NÃO crie arquivos (como .json, .txt, etc) para anexar. Você DEVE imprimir/retornar o JSON inteiro diretamente na sua resposta de texto.
     
     ESTRUTURA DO CONTEÚDO:
     - Cena 1 a 2: Hook poderoso.
