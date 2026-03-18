@@ -42,6 +42,7 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
     - Cada prompt de imagem deve estar em uma nova linha, em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
     - PROIBIDO: Não inclua "Roteiro final:", "Aqui está o roteiro", bullet points de instruções ou qualquer comentário fora das tags.
     - PROIBIDO: Não repita as regras de geração (ex: "Cada prompt deve estar...") dentro do texto do roteiro.
+    - PROIBIDO: SEM CONVERSA OU INTRODUÇÃO. Nunca inicie dizendo "Entendido", "Aqui está", "Vou criar o roteiro". O primeiro caractere dentro da tag DEVE ser a primeira palavra da narração do vídeo.
 
     ESTRUTURA DO CONTEÚDO:
     1. Hook poderoso (5-10s)
@@ -179,6 +180,10 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                         "HOOK PODEROSO", "REFLEXÃO PROFUNDA", "CLÍMAX E ESPERANÇA", "ROTEIRO FINAL"
                     ]
                     if any(x in upper_l for x in skip_patterns):
+                        continue
+                    
+                    # Remover falas iniciais do robô
+                    if upper_l.startswith("ENTENDIDO") or upper_l.startswith("AQUI ESTÁ") or upper_l.startswith("CLARO") or upper_l.startswith("VOU CRIAR") or upper_l.startswith("AQUI ESTA") or "SEGUINDO TODAS AS SUAS" in upper_l or "SEGUINDO SUAS ESPECIF" in upper_l:
                         continue
                     
                     # Ignorar metadados de API (tags de mensagem, assistant, IDs aleatórios)
