@@ -132,13 +132,48 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                             image_prompts.append(s.get("image_prompt", "").strip())
                             
                         final_text = " ".join(scripts).strip()
-                        print(f"[Manus AI] JSON parseado com sucesso! {len(scenes)} cenas extraídas.")
+                        print(f"[Manus AI] JSON textualmente parseado com sucesso! {len(scenes)} cenas extraídas.")
                         
                     except json.JSONDecodeError as e:
                         print(f"[Manus AI] Erro no parser do JSON: {e}")
                 
+                # Se não extraiu nada textualmente, tenta procurar se a IA gerou um ARQUIVO .json e baixar
                 if not final_text:
-                    print("[Manus AI] Falha ao extrair via JSON. Tentando fallback heurístico...")
+                    def find_json_url(obj):
+                        if isinstance(obj, str):
+                            m = re.search(r'(https?://\S+\.json)', obj, re.IGNORECASE)
+                            return m.group(1) if m else None
+                        if isinstance(obj, list):
+                            for item in obj:
+                                url = find_json_url(item)
+                                if url: return url
+                        if isinstance(obj, dict):
+                            for k, v in obj.items():
+                                url = find_json_url(v)
+                                if url: return url
+                        return None
+
+                    file_url = find_json_url(status_data)
+                    if file_url:
+                        print(f"[Manus AI] Detectado arquivo anexo. Baixando JSON gerado em: {file_url}")
+                        try:
+                            file_resp = requests.get(file_url, timeout=30)
+                            file_resp.raise_for_status()
+                            parsed = file_resp.json()
+                            scenes = parsed.get("scenes", [])
+                            
+                            scripts = []
+                            for s in scenes:
+                                scripts.append(s.get("text", "").strip())
+                                image_prompts.append(s.get("image_prompt", "").strip())
+                                
+                            final_text = " ".join(scripts).strip()
+                            print(f"[Manus AI] Arquivo JSON baixado e parseado! {len(scenes)} cenas extraídas.")
+                        except Exception as e:
+                            print(f"[Manus AI] Erro ao baixar ou ler o arquivo JSON anexo: {e}")
+
+                if not final_text:
+                    print("[Manus AI] Falha ao extrair via JSON ou anexo. Tentando fallback heurístico...")
                     final_text = fallback_script()
                 
                 # Validação Crítica
