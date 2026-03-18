@@ -136,9 +136,13 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                 else:
                     print("[Manus AI] Aviso: Tag <roteiro> não encontrada. Analisando texto bruto...")
                     # Se não tem tag, mas o texto é grande, tentamos limpar o que parece ser o prompt
-                    if len(raw_text) > 500:
-                        # Remove eventuais repetições do prompt inicial se existirem
-                        extracted_text = raw_text
+                    if len(raw_text) > 200:
+                        # Em muitos casos o Manus divide com "Roteiro final:" ou afins
+                        match = re.search(r'(?i)(roteiro final|texto falado|roteiro_final)[\s:\(0-9caractes\)]*(.*)', raw_text, re.DOTALL)
+                        if match:
+                            extracted_text = match.group(2)
+                        else:
+                            extracted_text = raw_text
                     else:
                         extracted_text = raw_text
 
@@ -171,13 +175,27 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                     skip_patterns = [
                         "<ROTEIRO>", "</ROTEIRO>", "<IMAGENS>", "</IMAGENS>", 
                         "INSTRUÇÕES", "ESTRUTURA", "PROMPT", "CENA", 
-                        "CADA PROMPT", "UMA INTRODUÇÃO", "UMA REFLEXÃO", "MENSAGEM DE ESPERANÇA", "CALL TO ACTION"
+                        "CADA PROMPT", "UMA INTRODUÇÃO", "UMA REFLEXÃO", "MENSAGEM DE ESPERANÇA", "CALL TO ACTION",
+                        "HOOK PODEROSO", "REFLEXÃO PROFUNDA", "CLÍMAX E ESPERANÇA", "ROTEIRO FINAL"
                     ]
                     if any(x in upper_l for x in skip_patterns):
                         continue
                     
+                    # Ignorar metadados de API (tags de mensagem, assistant, IDs aleatórios)
+                    if l.lower() in ['assistant', 'message', 'user', 'system']:
+                        continue
+                        
+                    # Ignorar strings longas sem espaço (provavelmente IDs)
+                    if len(l) > 15 and " " not in l:
+                        continue
+                        
                     # Se a linha parecer uma regra (ex: "Cada prompt deve...")
                     if "DEVE ESTAR" in upper_l or "DEVE TER" in upper_l:
+                        continue
+
+                    # Ignorar linhas numeradas que parecem tópicos como "1. Hook poderoso (5-10s)"
+                    import re
+                    if re.match(r'^\d+\.\s*(?:Hook|Reflexão|Clímax|Call to Action)', l, re.IGNORECASE):
                         continue
 
                     # Se a linha for idêntica ao tópico, pulamos

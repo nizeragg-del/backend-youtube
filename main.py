@@ -14,7 +14,8 @@ if not os.path.exists(".env") and os.path.exists(".env.example"):
 else:
     load_dotenv()
 
-def run_pipeline(topic: str, user_id: str = ""):
+def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_language: str = "", speech_speed_arg: str = "1.0"):
+    speech_speed = float(speech_speed_arg) if speech_speed_arg.strip() else 1.0
     print("=" * 40)
     print(f"🎬 Iniciando automação (V8 Manus AI) para: {topic}")
     
@@ -59,6 +60,8 @@ def run_pipeline(topic: str, user_id: str = ""):
     # Sobrescrever envs para os sub-scripts usarem as chaves corretas
     os.environ["MANUS_API_KEY"] = manus_key
     os.environ["TYPECAST_API_KEY"] = typecast_key
+    if voice_id:
+        os.environ["TYPECAST_ACTOR_ID"] = voice_id
     
     print(f"[Config] Manus API Key: {'Configurada (Usuário)' if user_id and manus_key else ('Configurada' if manus_key else 'AUSENTE')}")
     print(f"[Config] Typecast API Key: {'Configurada (Usuário)' if user_id and typecast_key else ('Configurada' if typecast_key else 'AUSENTE')}")
@@ -115,8 +118,8 @@ def run_pipeline(topic: str, user_id: str = ""):
             if path: image_paths.append(path)
 
     # PASSO 3 - Typecast AI: Narração e Sync
-    print("[Passo 3] Gerando narração via Typecast AI...")
-    audio_path_raw, sync_path_raw = generate_voice(str(script_text), assets_dir)
+    print(f"[Passo 3] Gerando narração via Typecast AI (velocidade: {speech_speed}x)...")
+    audio_path_raw, sync_path_raw = generate_voice(str(script_text), assets_dir, speech_speed=speech_speed)
     
     if not audio_path_raw or not sync_path_raw:
         print("🔴 ERRO: Não foi possível gerar o áudio/sincronia via Typecast AI. Abortando.")
@@ -218,6 +221,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--topic", type=str, required=True)
     parser.add_argument("--user_id", type=str, default="")
+    parser.add_argument("--voice_id", type=str, default="")
+    parser.add_argument("--voice_language", type=str, default="")
+    parser.add_argument("--speech_speed", type=str, default="1.0")
     args = parser.parse_args()
     
-    run_pipeline(args.topic, args.user_id)
+    run_pipeline(args.topic, args.user_id, args.voice_id, args.voice_language, args.speech_speed)

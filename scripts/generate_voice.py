@@ -46,7 +46,7 @@ def transcribe_audio(audio_path):
         print(f"[Whisper] Erro na transcrição: {e}")
         return None
 
-def generate_voice(text, output_dir):
+def generate_voice(text, output_dir, speech_speed=1.0):
     """
     Envia o texto para a API do Typecast para gerar o áudio e cria sincronização.
     """
@@ -79,6 +79,19 @@ def generate_voice(text, output_dir):
         
         with open(audio_path, "wb") as f:
             f.write(response.content)
+            
+        if speech_speed != 1.0:
+            print(f"[Typecast AI] Ajustando velocidade do áudio para {speech_speed}x...")
+            temp_audio = audio_path.replace(".mp3", "_temp.mp3")
+            os.rename(audio_path, temp_audio)
+            cmd = ["ffmpeg", "-y", "-i", temp_audio, "-filter:a", f"atempo={speech_speed}", "-vn", audio_path]
+            try:
+                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                os.remove(temp_audio)
+            except Exception as e:
+                print(f"[!] Erro ao ajustar velocidade: {e}. Mantendo velocidade original.")
+                if os.path.exists(temp_audio) and not os.path.exists(audio_path):
+                    os.rename(temp_audio, audio_path)
             
         print("[Typecast AI] Áudio gerado. Sincronizando...")
         
