@@ -28,8 +28,8 @@ def generate_manus_image(prompt, index, output_dir):
         "Content-Type": "application/json"
     }
     
-    # Prompt formatado para garantir que o Manus AI saiba que deve GERAR uma imagem
-    task_prompt = f"Generate a cinematic, high-quality image based on this description: {prompt}. Return only the direct URL of the generated image."
+    # Prompt formatado para garantir que o Manus AI saiba que deve GERAR uma imagem vertical
+    task_prompt = f"Generate a cinematic, high-quality VERTICAL image (9:16 aspect ratio, portrait orientation) suitable for YouTube Shorts, based on this description: {prompt}. You must ensure it is 9:16 vertical ratio. Return only the direct URL of the generated image."
     
     data = {
         "prompt": task_prompt,
