@@ -10,7 +10,7 @@ interface DynamicCaptionsProps {
 
 export const DynamicCaptions: React.FC<DynamicCaptionsProps> = ({ 
   syncData, 
-  wordsPerPhrase = 5 
+  wordsPerPhrase = 3 
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -75,7 +75,7 @@ export const DynamicCaptions: React.FC<DynamicCaptionsProps> = ({
         return (
           <div key={`${w.word}-${i}`} style={{
             fontFamily: montserrat,
-            fontSize: "100px",
+            fontSize: "80px",
             fontWeight: 900,
             color: textColor,
             textTransform: "uppercase",

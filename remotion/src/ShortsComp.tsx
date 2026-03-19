@@ -89,7 +89,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         pointerEvents: "none",
         zIndex: 100
       }}>
-        <DynamicCaptions syncData={syncData} wordsPerPhrase={5} />
+        <DynamicCaptions syncData={syncData} wordsPerPhrase={3} />
       </AbsoluteFill>
 
       {/* Vinheta Premium */}
