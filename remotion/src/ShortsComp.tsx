@@ -12,10 +12,7 @@ import { fade } from "@remotion/transitions/fade";
 import { LightLeak } from "@remotion/light-leaks";
 import { GodRays, GoldenParticles } from "./components/Effects";
 import { OpeningScene } from "./scenes/OpeningScene";
-import { VerseScene } from "./scenes/VerseScene";
-import { SimpleMessageScene } from "./scenes/SimpleMessageScene";
-import { ClimaxScene } from "./scenes/ClimaxScene";
-import { EliteText } from "./components/EliteText";
+import { DynamicCaptions } from "./components/DynamicCaptions";
 
 export type WordSync = {
   word: string;
@@ -38,8 +35,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   audioUrl,
   imageUrls = [],
 }) => {
-  const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { durationInFrames } = useVideoConfig();
   
   // Transição de 20 frames
   const transitionDuration = 20;
@@ -48,11 +44,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
   // Duração dinâmica por cena baseado no número de imagens
   const totalScenes = imageUrls.length || 1;
   const framesPerScene = Math.floor(durationInFrames / totalScenes);
-  const currentTime = frame / fps;
   
-  const activeWord = syncData.find(
-    (w) => currentTime >= w.start && currentTime <= w.end
-  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
@@ -88,24 +80,18 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         })}
       </TransitionSeries>
 
-      {/* Legendas de Elite Estabilizadas */}
-      {activeWord && (
-        <AbsoluteFill style={{ 
-          justifyContent: "flex-end", 
-          alignItems: "center", 
-          bottom: "250px", // Usando bottom ao invés de paddingBottom para garantir posição fixa
-          height: "200px",
-          top: "auto",
-          pointerEvents: "none",
-          zIndex: 100
-        }}>
-          <EliteText 
-            key={`${activeWord.word}-${activeWord.start}`} 
-            text={activeWord.word} 
-            type="caption" 
-          />
-        </AbsoluteFill>
-      )}
+      {/* Legendas Dinâmicas Estilo TikTok/Kwai */}
+      <AbsoluteFill style={{ 
+        justifyContent: "center", // Centraliza verticamente no container
+        alignItems: "center", 
+        bottom: "300px", // Posição exata acima da vinheta
+        height: "400px", // Altura maior para acomodar quebras de linha das frases
+        top: "auto",
+        pointerEvents: "none",
+        zIndex: 100
+      }}>
+        <DynamicCaptions syncData={syncData} wordsPerPhrase={5} />
+      </AbsoluteFill>
 
       {/* Vinheta Premium */}
       <AbsoluteFill style={{
