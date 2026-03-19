@@ -2,7 +2,6 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
-  useCurrentFrame,
   useVideoConfig,
   staticFile,
 } from "remotion";
