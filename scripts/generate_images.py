@@ -45,14 +45,21 @@ def generate_manus_image(prompt, index, output_dir):
             print(f"[Manus AI Image] Erro ao criar tarefa para imagem {index}.")
             return None
 
-        print(f"[Manus AI Image] Tarefa {task_id} criada para imagem {index}. Aguardando...")
+        print(f"[Manus AI Image] Tarefa {task_id} criada para imagem {index}. URL de polling: {MANUS_API_URL}/{task_id}")
         
         # Polling
-        for _ in range(60): # Até 3 minutos para geração de imagem
+        for attempt in range(60): # Até 3 minutos para geração de imagem
             time.sleep(5)
-            status_resp = requests.get(f"{MANUS_API_URL}/{task_id}", headers=headers)
-            status_resp.raise_for_status()
-            status_data = status_resp.json()
+            try:
+                status_resp = requests.get(f"{MANUS_API_URL}/{task_id}", headers=headers)
+                status_resp.raise_for_status()
+                status_data = status_resp.json()
+            except requests.exceptions.HTTPError as he:
+                if he.response.status_code == 404:
+                    print(f"[Manus AI Image] Aviso: 404 Not Found na tentativa {attempt+1}. Aguardando consistência da API...")
+                    continue
+                else:
+                    raise he
             
             status = status_data.get("status") or status_data.get("task_status")
             if status in ["completed", "DONE"]:

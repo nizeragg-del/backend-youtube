@@ -86,6 +86,19 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                 
                 import json
                 
+                # ------ DEBUG PROFUNDO ------
+                try:
+                    debug_path = os.path.join(os.path.dirname(__file__), "..", "assets", "debug_manus_script.json")
+                    with open(debug_path, "w", encoding="utf-8") as df:
+                        json.dump(status_data, df, ensure_ascii=False, indent=2)
+                    print(f"[Manus AI Debug] Payload completo da resposta salvo em: {debug_path}")
+                except Exception as e:
+                    print(f"[Manus AI Debug] Erro ao salvar payload: {e}")
+                
+                # Imprime chaves principais para log rápido no console
+                print(f"[Manus AI Debug] Chaves presentes no JSON de resposta: {list(status_data.keys())}")
+                # -----------------------------
+                
                 # Tenta extrair a string completa do JSON a partir dos dados retornados
                 # Como solicitamos exclusivamente JSON, podemos tentar pegar o output e fazer dumps/loads
                 # ou usar regex para localizar as chaves
