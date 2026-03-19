@@ -35,14 +35,14 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
     O nicho é Religioso/Espiritual. 
     
     INSTRUÇÕES CRITICAIS E OBRIGATÓRIAS:
-    - VOCÊ DEVE RESPONDER EXCLUSIVAMENTE COM UM CÓDIGO JSON VÁLIDO. 
-    - O JSON deve conter apenas uma chave principal chamada "scenes", contendo uma lista com exatamente 10 objetos.
-    - Cada objeto da lista "scenes" deve ter:
-      * "text": A fala exata do locutor daquela cena (1 ou 2 frases fluídas, sem numeração).
-      * "image_prompt": O prompt da imagem para aquela cena, escrito em INGLÊS, descrevendo uma cena cinematográfica, épica e espiritual.
-    - PROIBIDO: Não inclua "Roteiro final:", cumprimentos, ou formato markdown fora do JSON.
-    - PROIBIDO: NÃO crie arquivos (como .json, .txt, etc) para anexar. Você DEVE imprimir/retornar o JSON inteiro diretamente na sua resposta de texto.
-    - SEJA CURTO E DIRETO: A soma do campo "text" de todas as cenas juntas não deve passar de 650 caracteres. O "image_prompt" deve ser uma frase curta de no máximo 15 palavras.
+    - VOCÊ ESTÁ PROIBIDO DE USAR JSON OU ARQUIVOS. RESPONDA DIRETAMENTE NO TEXTO.
+    - Siga RIGOROSAMENTE as tags exatas abaixo para CADA UMA das 10 cenas:
+    [SCENE TEXT] A fala exata do locutor (1 ou 2 frases curtas)
+    [SCENE IMAGE] Prompt da imagem detalhado em INGLÊS
+
+    - SEJA CURTO E DIRETO: A regra de tamanho é rígida. Não ultrapasse 650 caracteres somando todas as falas.
+    - PROIBIDO: Não adicione conclusões finais fora destas tags.
+    
     
     ESTRUTURA DO CONTEÚDO:
     - Cena 1 a 2: Hook poderoso.
@@ -127,94 +127,58 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                     except Exception:
                         raw_text = str(raw_text)
 
-                # 1. Tenta extrair individualmente com Regex (imune a cortes ou JSONs incompletos ou markdown quebrado)
-                # Formato esperado: "text": "...", "image_prompt": "..." dentro de chaves. Usaremos um findall direto nas chaves.
-                # Ele pega o conteúdo de "text" e "image_prompt" linha a linha.
-                
                 final_text = ""
                 image_prompts = []
                 
-                # Busca robusta que não exige que o JSON pareça estar fechado na ponta
-                # Encontra qualquer bloco com formato "text": "X", "image_prompt": "Y"
-                blocks = re.findall(r'"text"\s*:\s*"(.*?)",\s*"image_prompt"\s*:\s*"(.*?)"', raw_text, re.DOTALL | re.IGNORECASE)
+                # O regex caça tudo que estiver entre [SCENE TEXT] e [SCENE IMAGE] (ou até a próxima SCENE TEXT / fim do texto)
+                import re
                 
-                # Se não achou na ordem exata, tenta a ordem invertida só para garantir
-                if not blocks:
-                    blocks_inv = re.findall(r'"image_prompt"\s*:\s*"(.*?)",\s*"text"\s*:\s*"(.*?)"', raw_text, re.DOTALL | re.IGNORECASE)
-                    blocks = [(t, p) for p, t in blocks_inv]
+                # Desfaz qualquer possível layer pesada de cast string
+                if isinstance(raw_text, dict) or isinstance(raw_text, list):
+                    raw_text = str(raw_text)
                 
-                if blocks:
-                    for t, p in blocks:
-                        # Limpeza básica em caso de escaped quotes internas
-                        clean_t = t.replace('\\"', '"').strip()
-                        clean_p = p.replace('\\"', '"').strip()
-                        # Não adiciona se tiver lixo residual
-                        if len(clean_t) > 5 and len(clean_p) > 5:
-                            scripts.append(clean_t)
-                            image_prompts.append(clean_p)
-                            
-                    if scripts:
+                # Primeiro tentamos quebrar por [SCENE TEXT]
+                parts = raw_text.split("[SCENE TEXT]")
+                scripts = []
+                
+                for part in parts[1:]: # O índice 0 é lixo prévio
+                    # Cada part começa com a fala, seguida por [SCENE IMAGE] e pelo prompt
+                    if "[SCENE IMAGE]" in part:
+                        subparts = part.split("[SCENE IMAGE]")
+                        t = subparts[0].strip()
+                        # Limpa qualquer escape residual
+                        t = t.replace('\\"', '"').replace("\\'", "'").replace('\\n', ' ')
+                        
+                        # O prompt de imagem vai até a próxima tag de SCENE TEXT (que já foi limado pelo split principal)
+                        # Entao ele é o resto ou até "\n[" se houver lixo
+                        p = subparts[1].split("\n[")[0].strip()
+                        p = p.replace('\\"', '"').replace("\\'", "'").replace('\\n', ' ')
+                        
+                        if len(t) > 5 and len(p) > 5:
+                            scripts.append(t)
+                            image_prompts.append(p)
+                
+                if scripts:
+                    final_text = " ".join(scripts).strip()
+                    print(f"[Manus AI] Texto Tagueado extraído com sucesso! {len(scripts)} cenas processadas.")
+                else:
+                    # Fallback caso a IA use tags levemente diferentes
+                    blocks = re.findall(r'\[SCENE TEXT\](.*?)(?:\[SCENE IMAGE\])(.*?)(?=\[SCENE TEXT\]|\Z)', raw_text, re.DOTALL | re.IGNORECASE)
+                    if blocks:
+                        for t, p in blocks:
+                            t = t.replace('\\"', '"').replace("\\'", "'").strip()
+                            p = p.replace('\\"', '"').replace("\\'", "'").strip()
+                            if len(t) > 5 and len(p) > 5:
+                                scripts.append(t)
+                                image_prompts.append(p)
                         final_text = " ".join(scripts).strip()
-                        print(f"[Manus AI] JSON fragmentado/parcial lido via Regex! {len(scripts)} cenas extraídas perfeitamente mesmo com possível corte.")
-                
-                # Se ainda sim falhar completamente, volta à tentativa de JSON inteiro:
-                if not final_text:
-                    match = re.search(r'(\{.*"scenes".*\})', raw_text, re.DOTALL | re.IGNORECASE)
-                    if match:
-                        json_str = match.group(1)
-                        try:
-                            parsed = json.loads(json_str)
-                            scenes = parsed.get("scenes", [])
-                            
-                            for s in scenes:
-                                scripts.append(s.get("text", "").strip())
-                                image_prompts.append(s.get("image_prompt", "").strip())
-                                
-                            final_text = " ".join(scripts).strip()
-                            print(f"[Manus AI] JSON textualmente parseado com sucesso! {len(scenes)} cenas extraídas.")
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"[Manus AI] Erro no parser do JSON: {e}")
-                
-
-                # Se não extraiu nada textualmente, tenta procurar se a IA gerou um ARQUIVO .json e baixar
-                if not final_text:
-                    def find_json_url(obj):
-                        if isinstance(obj, str):
-                            m = re.search(r'(https?://\S+\.json)', obj, re.IGNORECASE)
-                            return m.group(1) if m else None
-                        if isinstance(obj, list):
-                            for item in obj:
-                                url = find_json_url(item)
-                                if url: return url
-                        if isinstance(obj, dict):
-                            for k, v in obj.items():
-                                url = find_json_url(v)
-                                if url: return url
-                        return None
-
-                    file_url = find_json_url(status_data)
-                    if file_url:
-                        print(f"[Manus AI] Detectado arquivo anexo. Baixando JSON gerado em: {file_url}")
-                        try:
-                            file_resp = requests.get(file_url, timeout=30)
-                            file_resp.raise_for_status()
-                            parsed = file_resp.json()
-                            scenes = parsed.get("scenes", [])
-                            
-                            scripts = []
-                            for s in scenes:
-                                scripts.append(s.get("text", "").strip())
-                                image_prompts.append(s.get("image_prompt", "").strip())
-                                
-                            final_text = " ".join(scripts).strip()
-                            print(f"[Manus AI] Arquivo JSON baixado e parseado! {len(scenes)} cenas extraídas.")
-                        except Exception as e:
-                            print(f"[Manus AI] Erro ao baixar ou ler o arquivo JSON anexo: {e}")
+                        print(f"[Manus AI] Texto Tagueado (Regex Fallback) extraído: {len(scripts)} cenas.")
 
                 if not final_text:
-                    print("[Manus AI] Falha ao extrair via JSON ou anexo. Tentando fallback heurístico...")
+                    print("[Manus AI] Falha ao extrair via Tags. O payload parecia não ter as tags corretas. Tentando fallback heurístico...")
+                    print(f"--- DUMP BRUTO PARA DEBUG (Primeiros 1000 char) ---\n{raw_text[:1000]}\n--------------------------------")
                     final_text = fallback_script()
+
                 
                 # Validação Crítica
                 if len(final_text) < 150:
