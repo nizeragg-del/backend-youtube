@@ -87,7 +87,11 @@ def generate_manus_image(prompt, index, output_dir):
                     
                     # Download da imagem
                     try:
-                        img_resp = requests.get(image_url, timeout=30)
+                        img_headers = {}
+                        if "manuscdn.com" in image_url:
+                            img_headers["API_KEY"] = manus_key
+                            
+                        img_resp = requests.get(image_url, headers=img_headers, timeout=30)
                         img_resp.raise_for_status()
                         
                         filename = f"scene_{index}.png"

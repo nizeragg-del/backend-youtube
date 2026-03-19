@@ -36,18 +36,19 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
     
     INSTRUÇÕES CRITICAIS E OBRIGATÓRIAS:
     - VOCÊ ESTÁ PROIBIDO DE USAR JSON OU ARQUIVOS. RESPONDA DIRETAMENTE NO TEXTO.
-    - Siga RIGOROSAMENTE as tags exatas abaixo para CADA UMA das 10 cenas:
-    [SCENE TEXT] A fala exata do locutor (1 ou 2 frases curtas)
-    [SCENE IMAGE] Prompt da imagem detalhado em INGLÊS
+    - Siga RIGOROSAMENTE as tags exatas abaixo para CADA UMA das 8 cenas (MÁXIMO 8 CENAS PARA NÃO PASSAR DE 60 SEGUNDOS):
+    [SCENE TEXT] <insira aqui a fala do locutor>
+    [SCENE IMAGE] <insira aqui o prompt em inglês>
 
-    - SEJA CURTO E DIRETO: A regra de tamanho é rígida. Não ultrapasse 650 caracteres somando todas as falas.
-    - PROIBIDO: Não adicione conclusões finais fora destas tags.
+    - IMPORTANTE: NÃO repita o texto "A fala exata do locutor" nem "Roteiro final" na sua resposta. Comece direto no conteúdo.
+    - SEJA CURTO E DIRETO: A regra de tamanho é rígida. Não ultrapasse 500 caracteres somando todas as falas das 8 cenas.
+    - PROIBIDO: Não adicione conclusões finais ou metadados da IA fora destas tags.
     
     
-    ESTRUTURA DO CONTEÚDO:
-    - Cena 1 a 2: Hook poderoso.
-    - Cena 3 a 8: Reflexão profunda.
-    - Cena 9 a 10: Clímax e Call to Action ('Deixe um amém nos comentários e compartilhe essa luz com quem você ama.').
+    ESTRUTURA DO CONTEÚDO (EXATAMENTE 8 CENAS):
+    - Cena 1: Hook impactante.
+    - Cena 2 a 7: Curiosidades ou história.
+    - Cena 8: Call to Action final.
     """
     
     headers = {
@@ -149,6 +150,25 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                         # Limpa qualquer escape residual
                         t = t.replace('\\"', '"').replace("\\'", "'").replace('\\n', ' ')
                         
+                        # FILTRAGEM DE BOILERPLATE (Se a IA for tonta e repetir minhas instruções)
+                        blacklist = [
+                            "A fala exata do locutor", 
+                            "Roteiro final", 
+                            "1 ou 2 frases curtas",
+                            "insira aqui", 
+                            "Prompt da imagem",
+                            "(717 caracteres)"
+                        ]
+                        
+                        is_junk = False
+                        for junk in blacklist:
+                            if junk.lower() in t.lower():
+                                is_junk = True
+                                break
+                        
+                        if is_junk:
+                            continue
+
                         # O prompt de imagem vai até a próxima tag de SCENE TEXT (que já foi limado pelo split principal)
                         # Entao ele é o resto ou até "\n[" se houver lixo
                         p = subparts[1].split("\n[")[0].strip()
