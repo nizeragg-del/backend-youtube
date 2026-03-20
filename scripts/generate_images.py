@@ -9,7 +9,7 @@ env_path = os.path.join(base_path, ".env")
 if os.path.exists(env_path):
     load_dotenv(env_path)
 
-MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.ai/v1/tasks")
+MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.im/v1/tasks")
 
 def get_manus_key():
     return os.getenv("MANUS_API_KEY", "")

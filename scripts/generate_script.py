@@ -16,7 +16,7 @@ else:
     load_dotenv()
 
 # Configurações Manus AI
-MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.ai/v1/tasks")
+MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.im/v1/tasks")
 # A chave deve ser lida dentro da função ou atualizada após o load_dotenv
 def get_manus_key():
     return os.getenv("MANUS_API_KEY", "")
@@ -77,7 +77,7 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
         import re
         for _ in range(40): 
             time.sleep(3)
-            status_resp = requests.get(f"https://api.manus.ai/v1/tasks/{task_id}", headers=headers)
+            status_resp = requests.get(f"{MANUS_API_URL}/{task_id}", headers=headers)
             status_resp.raise_for_status()
             status_data = status_resp.json()
             
