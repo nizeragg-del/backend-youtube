@@ -7,21 +7,18 @@ export interface BackgroundProps {
 
 const getColorsFromMeta = (meta: string) => {
   const m = meta.toLowerCase();
-  if (m.includes("pôr do sol") || m.includes("quente") || m.includes("esperança")) {
-    return { start: "#4b1212", mid: "#c0392b", end: "#f1c40f" }; // Tons quentes/dourados
+  if (m.includes("elegante") || m.includes("luxo") || m.includes("premium")) {
+    return { start: "#1a1a1a", mid: "#2c3e50", end: "#bdc3c7" }; // Tons elegantes (Prata/Preto)
   }
-  if (m.includes("mistério") || m.includes("profundo") || m.includes("azul") || m.includes("noite")) {
-    return { start: "#1a1a2e", mid: "#16213e", end: "#0f3460" }; // Tons azuis profundos
-  }
-  if (m.includes("espiritual") || m.includes("roxo") || m.includes("divino")) {
-    return { start: "#2d0b3d", mid: "#4b1348", end: "#c94b4b" }; // Roxo litúrgico
+  if (m.includes("tecnologia") || m.includes("futuro") || m.includes("digital")) {
+    return { start: "#000000", mid: "#1c2833", end: "#00d4ff" }; // Tons tecnológicos
   }
   return { start: "#000000", mid: "#1a1a1a", end: "#333333" }; // Fallback Dark
 };
 
 export const CinemaBackground: React.FC<BackgroundProps> = ({ visualMeta = "" }) => { // eslint-disable-line
   const frame = useCurrentFrame();
-  const { width, height } = useVideoConfig(); // eslint-disable-line
+  useVideoConfig(); 
   const colors = getColorsFromMeta(visualMeta);
 
   // Efeito Ken Burns (Zoom Suave)

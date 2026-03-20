@@ -12,6 +12,7 @@ import { LightLeak } from "@remotion/light-leaks";
 import { GodRays, GoldenParticles } from "./components/Effects";
 import { OpeningScene } from "./scenes/OpeningScene";
 import { TikTokCaptions } from "./components/TikTokCaptions";
+import { Particles, TypeWriter } from "remotion-bits";
 
 export type WordSync = {
   word: string;
@@ -29,6 +30,7 @@ export interface ShortsProps {
 }
 
 export const ShortsComp: React.FC<ShortsProps> = ({
+  title,
   visualMeta,
   syncData,
   audioUrl,
@@ -51,6 +53,31 @@ export const ShortsComp: React.FC<ShortsProps> = ({
 
       <GodRays />
       <GoldenParticles />
+      <Particles />
+
+      {/* Título com animação TypeWriter nos primeiros 3 segundos */}
+      <AbsoluteFill style={{
+        justifyContent: "center",
+        alignItems: "center",
+        top: "200px",
+        height: "100px",
+        pointerEvents: "none",
+        zIndex: 102
+      }}>
+        <div style={{
+          fontFamily: "Montserrat",
+          fontSize: "60px",
+          fontWeight: 900,
+          color: "white",
+          textTransform: "uppercase",
+          textShadow: "0 0 20px rgba(0,0,0,0.8)"
+        }}>
+          <TypeWriter 
+            text={title} 
+            typeSpeed={3} 
+          />
+        </div>
+      </AbsoluteFill>
 
       <TransitionSeries>
         {imageUrls.map((img, index) => {

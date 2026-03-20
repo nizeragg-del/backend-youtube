@@ -6,11 +6,11 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
-    "@remotion/animation-utils": "^4.0.438",
-    "@remotion/captions": "^4.0.438",
+    "@remotion/animation-utils": "4.0.435",
+    "@remotion/captions": "4.0.435",
     "@remotion/cli": "4.0.435",
-    "@remotion/google-fonts": "^4.0.435",
-    "@remotion/layout-utils": "^4.0.438",
+    "@remotion/google-fonts": "4.0.435",
+    "@remotion/layout-utils": "4.0.435",
     "@remotion/light-leaks": "^4.0.435",
     "@remotion/tailwind-v4": "4.0.435",
     "@remotion/transitions": "^4.0.435",
@@ -18,6 +18,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.435",
+    "remotion-bits": "^0.2.0",
     "tailwindcss": "4.0.0"
   },
   "devDependencies": {

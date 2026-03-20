@@ -31,7 +31,7 @@ def upload_to_youtube(video_path, title, description, client_id, client_secret, 
         "snippet": {
             "title": title,
             "description": description,
-            "tags": ["evangelico", "cristao", "fe", "esperanca"],
+            "tags": ["ia", "automacao", "criatividade"],
             "categoryId": "22" # People & Blogs
         },
         "status": {

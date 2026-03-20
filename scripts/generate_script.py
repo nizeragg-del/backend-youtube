@@ -21,7 +21,7 @@ MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.ai/v1/tasks")
 def get_manus_key():
     return os.getenv("MANUS_API_KEY", "")
 
-def generate_script(topic="história bíblica", max_duration_sec=50):
+def generate_script(topic="tópico interessante", max_duration_sec=50):
     """
     Solicita um roteiro ao Manus AI através do sistema de Tasks e aguarda o resultado.
     """
@@ -32,7 +32,7 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
 
     prompt = f"""
     Crie um roteiro DETALHADO para um vídeo de YouTube Shorts com duração exata entre 45 e 55 segundos sobre o tema: {topic}.
-    O nicho é Religioso/Espiritual. 
+    O nicho deve ser adaptado exatamente ao tema solicitado. 
     
     INSTRUÇÕES CRITICAIS E OBRIGATÓRIAS:
     - VOCÊ ESTÁ PROIBIDO DE USAR JSON OU ARQUIVOS. RESPONDA DIRETAMENTE NO TEXTO.
@@ -207,7 +207,7 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
                 
                 if not image_prompts:
                     print("[Manus AI] Sem prompts de imagem detectados. Gerando lista básica...")
-                    image_prompts = ["Cinematic scene about faith", "Epic biblical landscape", "Spiritual light and peace"]
+                    image_prompts = [f"Cinematic scene about {topic}", f"Epic landscape of {topic}", f"Vivid visual representation of {topic}"]
 
                 return {
                     "text": final_text,
@@ -232,12 +232,12 @@ def generate_script(topic="história bíblica", max_duration_sec=50):
 
 def fallback_script():
     return (
-        "Se você parou nesse vídeo, Deus tem um recado urgente para você.\n"
-        "Muitas vezes a tempestade parece grande demais e as forças parecem acabar.\n"
-        "Mas lembre-se de que a calmaria sempre vem após os ventos mais fortes.\n"
-        "Deus está abrindo uma porta gigantesca na sua vida financeira e espiritual.\n"
-        "Receba essa graça agora mesmo.\n"
-        "Se essa palavra te acalmou, compartilhe com quem precisa e deixe um amém nos comentários."
+        "O mundo está cheio de curiosidades fascinantes que muitas vezes ignoramos.\n"
+        "Desde o fundo dos oceanos até as galáxias mais distantes, a ciência nos surpreende.\n"
+        "Cada pequena descoberta nos mostra o quanto ainda temos a aprender sobre a natureza.\n"
+        "Se você gosta de aprender algo novo todos os dias, este canal é para você.\n"
+        "Acompanhe nossos vídeos diários e expanda seus horizontes.\n"
+        "Se essa curiosidade te surpreendeu, curta e compartilhe com um amigo."
     )
 
 if __name__ == "__main__":

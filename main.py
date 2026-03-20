@@ -114,7 +114,7 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
         elif not image_prompts and not image_paths:
             # Fallback se não tiver nada
             print(f"  -> Sem prompt para cena {i}. Usando padrão.")
-            path = generate_manus_image("Cinematic bible scene", i, public_images_dir)
+            path = generate_manus_image(f"Cinematic representation of {topic}", i, public_images_dir)
             if path: image_paths.append(path)
 
     # PASSO 3 - Typecast AI: Narração e Sync
@@ -202,7 +202,7 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
                 upload_to_youtube(
                     video_path=video_out_path,
                     title=topic, # Usamos o tópico como título por enquanto
-                    description=f"Vídeo gerado automaticamente sobre: {topic}\n\n#evangelico #fe #esperanca",
+                    description=f"Vídeo gerado automaticamente sobre: {topic}\n\n#automacao #ai #video",
                     client_id=yt_client_id,
                     client_secret=yt_client_secret,
                     refresh_token=yt_refresh
