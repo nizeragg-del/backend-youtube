@@ -6,8 +6,11 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "@remotion/animation-utils": "^4.0.438",
+    "@remotion/captions": "^4.0.438",
     "@remotion/cli": "4.0.435",
     "@remotion/google-fonts": "^4.0.435",
+    "@remotion/layout-utils": "^4.0.438",
     "@remotion/light-leaks": "^4.0.435",
     "@remotion/tailwind-v4": "4.0.435",
     "@remotion/transitions": "^4.0.435",

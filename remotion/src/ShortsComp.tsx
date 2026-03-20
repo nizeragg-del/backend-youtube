@@ -11,7 +11,7 @@ import { fade } from "@remotion/transitions/fade";
 import { LightLeak } from "@remotion/light-leaks";
 import { GodRays, GoldenParticles } from "./components/Effects";
 import { OpeningScene } from "./scenes/OpeningScene";
-import { DynamicCaptions } from "./components/DynamicCaptions";
+import { TikTokCaptions } from "./components/TikTokCaptions";
 
 export type WordSync = {
   word: string;
@@ -89,7 +89,7 @@ export const ShortsComp: React.FC<ShortsProps> = ({
         pointerEvents: "none",
         zIndex: 100
       }}>
-        <DynamicCaptions syncData={syncData} wordsPerPhrase={3} />
+        <TikTokCaptions syncData={syncData} wordsPerPhrase={3} />
       </AbsoluteFill>
 
       {/* Vinheta Premium */}
