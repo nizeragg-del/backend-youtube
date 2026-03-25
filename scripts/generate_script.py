@@ -76,11 +76,18 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
         print(f"[Manus AI] Tarefa {task_id} criada. Aguardando conclusão...")
         import time
         import re
-        for _ in range(40): 
+        for attempt in range(40): 
             time.sleep(3)
-            status_resp = requests.get(f"{MANUS_API_URL}/{task_id}", headers=headers)
-            status_resp.raise_for_status()
-            status_data = status_resp.json()
+            try:
+                status_resp = requests.get(f"{MANUS_API_URL}/{task_id}", headers=headers)
+                status_resp.raise_for_status()
+                status_data = status_resp.json()
+            except requests.exceptions.HTTPError as he:
+                if he.response.status_code == 404:
+                    print(f"[Manus AI] Aviso: 404 Not Found na tentativa {attempt+1}. Aguardando consistência da API...")
+                    continue
+                else:
+                    raise he
             
             status = status_data.get("status") or status_data.get("task_status")
             if status == "completed" or status == "DONE":
