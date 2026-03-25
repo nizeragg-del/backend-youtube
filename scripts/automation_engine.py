@@ -30,6 +30,7 @@ DAYS_MAP = {
 }
 
 def run_automation():
+    print("[DEBUG] Iniciando run_automation em project/scripts/automation_engine.py")
     # 1. Definir o dia atual em Brasília (BRT -03:00)
     brt = timezone(timedelta(hours=-3))
     now_brt = datetime.now(brt)
@@ -68,7 +69,7 @@ def run_automation():
             
             # 4. Executar o pipeline (main.py)
             params = [
-                "python", "main.py",
+                "python", os.path.join(base_path, "main.py"),
                 "--topic", config.get("script_theme", "Curiosidade sobre o espaço"),
                 "--user_id", user_id,
                 "--voice_id", config.get("voice_id", "tc_5f8d7b0de146f10007b8042f"),
@@ -79,7 +80,7 @@ def run_automation():
             try:
                 # Executa como subprocesso e aguarda
                 result = subprocess.run(params, capture_output=True, text=True, check=True)
-                print(f"[Automation] Sucesso para {user_id}:\n{result.stdout[-500:]}") # Mostra o fim do log
+                print(f"[Automation] Sucesso para {user_id}:\n{result.stdout}") # Mostra o log completo
             except subprocess.CalledProcessError as e:
                 print(f"[Automation] FALHA para {user_id}:\n{e.stderr}")
         else:

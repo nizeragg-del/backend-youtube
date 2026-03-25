@@ -15,6 +15,7 @@ else:
     load_dotenv()
 
 def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_language: str = "", speech_speed_arg: str = "1.0"):
+    print(f"[DEBUG] Executando run_pipeline com topic: {topic}")
     speech_speed = float(speech_speed_arg) if speech_speed_arg.strip() else 1.0
     print("=" * 40)
     print(f"🎬 Iniciando automação (V8 Manus AI) para: {topic}")
@@ -203,10 +204,30 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
         # PASSO Final - YouTube Upload (Opcional)
         if yt_refresh and yt_client_id and yt_client_secret:
             try:
+                print(f"[DEBUG] actual_title original: '{actual_title}'")
+                # Validação extra do título para evitar erros no YouTube (Agreessiva)
+                # 1. Remove colchetes e outros caracteres proibidos
+                clean_title = str(actual_title).replace("<", "").replace(">", "").strip()
+                # 2. Remove quebras de linha, tabs e espaços duplos que quebram o YouTube
+                import re
+                clean_title = re.sub(r'[\r\n\t]+', ' ', clean_title) # Transforma tudo em uma linha só
+                clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+                
+                # 3. Fallback se tiver placeholder ou for curto demais
+                if not clean_title or any(x in clean_title for x in ["Título Curto", "Instruções", "<", ">"]) or len(clean_title) < 3:
+                    print(f"[YouTube] ⚠️ Título inválido ou placeholder detectado ('{actual_title}'). Usando tópico como fallback.")
+                    clean_title = topic
+                
+                # 4. Limite do YouTube (100 chars)
+                if len(clean_title) > 95:
+                    clean_title = clean_title[:95] + "..."
+                
+                print(f"[DEBUG] clean_title final para upload: '{clean_title}'")
+                
                 upload_to_youtube(
                     video_path=video_out_path,
-                    title=actual_title, # Usamos o sub-tema como título
-                    description=f"Vídeo gerado automaticamente sobre: {actual_title}\n\n{actual_hashtags}",
+                    title=clean_title, 
+                    description=f"Vídeo gerado automaticamente sobre: {clean_title}\n\n{actual_hashtags}",
                     client_id=yt_client_id,
                     client_secret=yt_client_secret,
                     refresh_token=yt_refresh

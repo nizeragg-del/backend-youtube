@@ -40,14 +40,17 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
     2. Crie um roteiro DETALHADO para um vídeo de 45 a 55 segundos.
     
     INSTRUÇÕES OBRIGATÓRIAS:
-    - Comece sua resposta EXATAMENTE com a tag do título: [TITLE] <Título Curto e Viral>
-    - Adicione uma tag para as hashtags sugeridas: [HASHTAGS] <3 a 5 hashtags virais separadas por espaço>
+    - Sua resposta deve começar OBRIGATORIAMENTE com as tags abaixo, preenchidas com conteúdo REAL (NUNCA use os textos entre < > abaixo):
+    [TITLE] Seu Título Real Aqui
+    [HASHTAGS] Suas Hashtags Reais Aqui
+    
     - Siga com exatamente 8 cenas usando as tags:
       [SCENE TEXT] <Fala do locutor (máximo 2 frases curtas)>
       [SCENE IMAGE] <Prompt detalhado da imagem em INGLÊS>
     
     REGRAS DE OURO:
     - PROIBIDO repetir instruções ou adicionar introduções. Comece direto com [TITLE].
+    - NUNCA submeta a resposta com o texto "<Título Curto e Viral>". Crie um título real.
     - O texto total das falas não deve ultrapassar 500 caracteres.
     - Seja criativo e varie o tema e as hashtags dentro do nicho a cada solicitação.
     """
@@ -115,25 +118,37 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                     except:
                         raw_text = str(raw_text)
 
-                # Extração do TÍTULO e HASHTAGS
+                # Extração do TÍTULO e HASHTAGS (mais robusta com Regex)
                 display_title = topic
                 display_hashtags = "#shorts #viral #ai"
                 
-                if "[TITLE]" in raw_text:
-                    try:
-                        title_part = raw_text.split("[TITLE]")[1].split("[HASHTAGS]")[0].split("[SCENE TEXT]")[0].strip()
-                        if title_part:
-                            display_title = title_part
-                            print(f"[Manus AI] Sub-tema escolhido: {display_title}")
-                    except: pass
-                
-                if "[HASHTAGS]" in raw_text:
-                    try:
-                        hashtags_part = raw_text.split("[HASHTAGS]")[1].split("[SCENE TEXT]")[0].strip()
-                        if hashtags_part:
-                            display_hashtags = hashtags_part
-                            print(f"[Manus AI] Hashtags sugeridas: {display_hashtags}")
-                    except: pass
+                # Extrai o título ignorando colchetes e instruções
+                title_match = re.search(r"\[TITLE\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
+                if title_match:
+                    title_raw = title_match.group(1).strip()
+                    # Remove colchetes de placeholder < > 
+                    title_raw = re.sub(r'[<>]', '', title_raw)
+                    # Filtra linhas de instrução
+                    lines = [l.strip() for l in title_raw.split("\n") if l.strip()]
+                    for line in lines:
+                        if any(x in line for x in ["Título Curto", "Instruções", "Adicione uma tag", "TEMA/NICHO"]):
+                            continue
+                        display_title = line
+                        break
+                    print(f"[Manus AI] Sub-tema extraído: {display_title}")
+
+                # Extrai hashtags
+                tags_match = re.search(r"\[HASHTAGS\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
+                if tags_match:
+                    tags_raw = tags_match.group(1).strip()
+                    tags_raw = re.sub(r'[<>]', '', tags_raw)
+                    lines = [l.strip() for l in tags_raw.split("\n") if l.strip()]
+                    for line in lines:
+                        if any(x in line for x in ["hashtags virais", "Adicione uma tag"]):
+                            continue
+                        display_hashtags = line
+                        break
+                    print(f"[Manus AI] Hashtags extraídas: {display_hashtags}")
 
                 final_text = ""
                 image_prompts = []
