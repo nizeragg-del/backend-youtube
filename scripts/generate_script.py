@@ -31,28 +31,21 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
         return None
 
     prompt = f"""
-    Você é um roteirista especializado em vídeos virais de YouTube Shorts.
-    TEMA/NICHO RECEBIDO: {topic}
+    Você é um roteirista especializado em vídeos curtos (Shorts/Reels/TikTok) sobre o nicho: "{topic}".
+    Sua tarefa é criar um roteiro cativante, um título viral e hashtags estratégicas.
+
+    REGRAS CRÍTICAS:
+    1. Escolha um sub-tema específico e curioso dentro do nicho "{topic}".
+    2. NUNCA use os textos de exemplo abaixo na sua resposta. Substitua-os por conteúdo REAL.
+    3. Sua resposta deve começar OBRIGATORIAMENTE com as tags:
+    [TITLE] (Exemplo: O Segredo de Davi)
+    [HASHTAGS] (Exemplo: #biblia #curiosidades)
     
-    SUA MISSÃO:
-    1. A partir deste NICHO, escolha um sub-tópico específico, curioso e impactante. 
-       Exemplo: Se o nicho for "Histórias Bíblicas", escolha "A Coragem de Davi" ou "O Mistério de Melquisedeque".
-    2. Crie um roteiro DETALHADO para um vídeo de 45 a 55 segundos.
-    
-    INSTRUÇÕES OBRIGATÓRIAS:
-    - Sua resposta deve começar OBRIGATORIAMENTE com as tags abaixo, preenchidas com conteúdo REAL (NUNCA use os textos entre < > abaixo):
-    [TITLE] Seu Título Real Aqui
-    [HASHTAGS] Suas Hashtags Reais Aqui
-    
-    - Siga com exatamente 8 cenas usando as tags:
-      [SCENE TEXT] <Fala do locutor (máximo 2 frases curtas)>
-      [SCENE IMAGE] <Prompt detalhado da imagem em INGLÊS>
-    
-    REGRAS DE OURO:
-    - PROIBIDO repetir instruções ou adicionar introduções. Comece direto com [TITLE].
-    - NUNCA submeta a resposta com o texto "<Título Curto e Viral>". Crie um título real.
-    - O texto total das falas não deve ultrapassar 500 caracteres.
-    - Seja criativo e varie o tema e as hashtags dentro do nicho a cada solicitação.
+    4. Siga com exatamente 8 cenas usando as tags:
+    [SCENE TEXT] (Texto que o locutor vai falar, sem instruções entre parênteses ou colchetes)
+    [SCENE IMAGE] (Prompt detalhado em INGLÊS para geração de imagem realista)
+
+    ESTILO: Narrativa rápida, curiosa e que retenha a atenção até o final.
     """
     
     headers = {
@@ -126,12 +119,13 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                 title_match = re.search(r"\[TITLE\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
                 if title_match:
                     title_raw = title_match.group(1).strip()
-                    # Remove colchetes de placeholder < > 
-                    title_raw = re.sub(r'[<>]', '', title_raw)
+                    # Remove colchetes de placeholder < > e textos de instrução
+                    title_raw = re.sub(r'<[^>]*>', '', title_raw).strip()
                     # Filtra linhas de instrução
                     lines = [l.strip() for l in title_raw.split("\n") if l.strip()]
+                    blacklisted = ["Título Curto", "Instruções", "Adicione uma tag", "TEMA/NICHO", "Seu Título Real Aqui", "Exemplo:"]
                     for line in lines:
-                        if any(x in line for x in ["Título Curto", "Instruções", "Adicione uma tag", "TEMA/NICHO"]):
+                        if any(x.lower() in line.lower() for x in blacklisted):
                             continue
                         display_title = line
                         break
@@ -163,13 +157,20 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                 
                 if blocks:
                     for t, p in blocks:
+                        # Limpeza profunda do texto da cena
                         t = t.replace('\\"', '"').replace("\\'", "'").strip()
-                        p = p.replace('\\"', '"').replace("\\'", "'").strip()
-                        if len(t) > 5 and len(p) > 5:
-                            scripts.append(t)
-                            image_prompts.append(p)
-                    final_text = " ".join(scripts).strip()
-                    print(f"[Manus AI] Roteiro extraído: {len(scripts)} cenas.")
+                        # Remove qualquer coisa entre < > e [ ] que a IA possa ter deixado
+                        t = re.sub(r'<[^>]*>', '', t)
+                        t = re.sub(r'\[[^\]]*\]', '', t)
+                        # Remove frases de exemplo comuns
+                        t = t.replace("Fala do locutor", "").replace("máximo 2 frases curtas", "").strip()
+                        t = t.strip()
+                        
+                        if t and p:
+                            final_text += t + " "
+                            image_prompts.append(p.strip())
+                    final_text = final_text.strip() # Ensure final_text is stripped after concatenation
+                    print(f"[Manus AI] Roteiro extraído: {len(blocks)} cenas.") # Changed to blocks as scripts list is not used here
                 
                 if not final_text:
                     print("[Manus AI] Falha ao extrair via Tags. Usando fallback...")

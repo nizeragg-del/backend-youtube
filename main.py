@@ -214,7 +214,8 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
                 clean_title = re.sub(r'\s+', ' ', clean_title).strip()
                 
                 # 3. Fallback se tiver placeholder ou for curto demais
-                if not clean_title or any(x in clean_title for x in ["Título Curto", "Instruções", "<", ">"]) or len(clean_title) < 3:
+                blacklist = ["Título Curto", "Instruções", "<", ">", "Seu Título Real Aqui", "Título Real"]
+                if not clean_title or any(x.lower() in clean_title.lower() for x in blacklist) or len(clean_title) < 3:
                     print(f"[YouTube] ⚠️ Título inválido ou placeholder detectado ('{actual_title}'). Usando tópico como fallback.")
                     clean_title = topic
                 
