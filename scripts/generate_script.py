@@ -37,19 +37,19 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
     REGRAS CRÍTICAS:
     1. Escolha um sub-tema específico e curioso dentro do nicho "{topic}".
     2. NUNCA use os textos de exemplo abaixo na sua resposta. Substitua-os por conteúdo REAL.
-    3. Sua resposta deve começar OBRIGATORIAMENTE com as tags:
+    3. Sua resposta deve começar OBRIGATORIAMENTE com as tags abaixo, preenchidas com conteúdo REAL:
     [TITLE]
-    (Aqui você escreve o título real do vídeo)
+    (Escreva aqui o título real)
 
     [HASHTAGS]
-    (Aqui você escreve as hashtags reais separadas por espaço)
+    (Escreva aqui as hashtags reais)
     
     4. Siga com exatamente 8 cenas usando as tags:
     [SCENE TEXT]
-    (Aqui você escreve apenas a fala do locutor, sem parênteses ou instruções)
+    (Escreva aqui apenas a fala do locutor)
 
     [SCENE IMAGE]
-    (Aqui você escreve o prompt detalhado da imagem em INGLÊS)
+    (Escreva aqui o prompt da imagem em INGLÊS)
 
     ESTILO: Narrativa rápida, curiosa e que retenha a atenção até o final.
     """
@@ -125,11 +125,11 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                 title_match = re.search(r"\[TITLE\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
                 if title_match:
                     title_raw = title_match.group(1).strip()
-                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior
-                    title_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', title_raw).strip()
+                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior (MULTILINE)
+                    title_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', title_raw, flags=re.DOTALL).strip()
                     # Filtra linhas de instrução
                     lines = [l.strip() for l in title_raw.split("\n") if l.strip()]
-                    blacklisted = ["Título Curto", "Instruções", "Adicione uma tag", "TEMA/NICHO", "Seu Título Real Aqui", "Exemplo:", "Escreva aqui"]
+                    blacklisted = ["Título", "Instruções", "tag", "TEMA", "NICHO", "Aqui você", "Exemplo", "Escreva aqui"]
                     for line in lines:
                         if any(x.lower() in line.lower() for x in blacklisted):
                             continue
@@ -141,8 +141,8 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                 tags_match = re.search(r"\[HASHTAGS\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
                 if tags_match:
                     tags_raw = tags_match.group(1).strip()
-                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior
-                    tags_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', tags_raw).strip()
+                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior (MULTILINE)
+                    tags_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', tags_raw, flags=re.DOTALL).strip()
                     lines = [l.strip() for l in tags_raw.split("\n") if l.strip()]
                     for line in lines:
                         if any(x in line for x in ["hashtags virais", "Adicione uma tag"]):
@@ -166,10 +166,10 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                     for t, p in blocks:
                         # Limpeza ultra profunda do texto da cena
                         t = t.replace('\\"', '"').replace("\\'", "'").strip()
-                        # Remove QUALQUER coisa entre parênteses (), colchetes [] ou tags < >
-                        t = re.sub(r'[\(\[<].*?[\)\]>]', '', t)
+                        # Remove QUALQUER coisa entre parênteses (), colchetes [] ou tags < > (MULTILINE)
+                        t = re.sub(r'[\(\[<].*?[\)\]>]', '', t, flags=re.DOTALL)
                         # Remove frases de exemplo residuais
-                        blacklisted_phrases = ["Fala do locutor", "máximo 2 frases curtas", "Texto que o locutor vai falar", "Escreva aqui"]
+                        blacklisted_phrases = ["Fala do locutor", "frases curtas", "Texto que o locutor", "Escreva aqui", "Aqui você"]
                         for phrase in blacklisted_phrases:
                             t = t.replace(phrase, "")
                         

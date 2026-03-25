@@ -171,8 +171,11 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
     with open(input_props_path, "w", encoding="utf-8") as f:
         json.dump(props, f, indent=2, ensure_ascii=False)
         
-    safe_topic = str(actual_title.replace(" ", "_").lower())
-    short_name = safe_topic[0:15] if len(safe_topic) > 15 else safe_topic # type: ignore
+    # Criar um nome de arquivo seguro (Slug)
+    import re
+    safe_topic = re.sub(r'[^a-zA-Z0-9]', '_', str(actual_title)).strip('_')
+    if not safe_topic: safe_topic = "video"
+    short_name = safe_topic[0:25] if len(safe_topic) > 25 else safe_topic
     video_out_name = f"{short_name}.mp4"
     
     if not os.path.exists(output_dir):
