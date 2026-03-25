@@ -85,7 +85,11 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
 
     script_text = script_data.get("text", "")
     image_prompts = script_data.get("image_prompts", [])
+    actual_title = script_data.get("title", topic)
+    actual_hashtags = script_data.get("hashtags", "#shorts #viral #ai")
     
+    print(f"Sub-tema: {actual_title}")
+    print(f"Hashtags: {actual_hashtags}")
     print(f"Roteiro final ({len(script_text)} caracteres):\n{script_text}\n")
     print(f"Encontrados {len(image_prompts)} prompts de imagem.\n")
     
@@ -114,7 +118,7 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
         elif not image_prompts and not image_paths:
             # Fallback se não tiver nada
             print(f"  -> Sem prompt para cena {i}. Usando padrão.")
-            path = generate_manus_image(f"Cinematic representation of {topic}", i, public_images_dir)
+            path = generate_manus_image(f"Cinematic representation of {actual_title}", i, public_images_dir)
             if path: image_paths.append(path)
 
     # PASSO 3 - Typecast AI: Narração e Sync
@@ -156,7 +160,7 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
         sync_data = []
         
     props = {
-        "title": topic,
+        "title": actual_title,
         "scriptText": script_text,
         "imageUrls": image_paths,
         "syncData": sync_data,
@@ -166,7 +170,7 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
     with open(input_props_path, "w", encoding="utf-8") as f:
         json.dump(props, f, indent=2, ensure_ascii=False)
         
-    safe_topic = str(topic.replace(" ", "_").lower())
+    safe_topic = str(actual_title.replace(" ", "_").lower())
     short_name = safe_topic[0:15] if len(safe_topic) > 15 else safe_topic # type: ignore
     video_out_name = f"{short_name}.mp4"
     
@@ -201,8 +205,8 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
             try:
                 upload_to_youtube(
                     video_path=video_out_path,
-                    title=topic, # Usamos o tópico como título por enquanto
-                    description=f"Vídeo gerado automaticamente sobre: {topic}\n\n#automacao #ai #video",
+                    title=actual_title, # Usamos o sub-tema como título
+                    description=f"Vídeo gerado automaticamente sobre: {actual_title}\n\n{actual_hashtags}",
                     client_id=yt_client_id,
                     client_secret=yt_client_secret,
                     refresh_token=yt_refresh

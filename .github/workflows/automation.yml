@@ -2,8 +2,8 @@ name: Automation Motor (Daily)
 
 on:
   schedule:
-    # 06:30 AM BRT (Brasil) é 09:30 UTC
-    - cron: '30 9 * * *'
+    # 07:45 AM BRT (Brasil) é 10:45 UTC
+    - cron: '45 10 * * *'
   workflow_dispatch: # Permite teste manual
 
 jobs:

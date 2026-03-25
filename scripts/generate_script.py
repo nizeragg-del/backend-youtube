@@ -31,24 +31,25 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
         return None
 
     prompt = f"""
-    Crie um roteiro DETALHADO para um vídeo de YouTube Shorts com duração exata entre 45 e 55 segundos sobre o tema: {topic}.
-    O nicho deve ser adaptado exatamente ao tema solicitado. 
+    Você é um roteirista especializado em vídeos virais de YouTube Shorts.
+    TEMA/NICHO RECEBIDO: {topic}
     
-    INSTRUÇÕES CRITICAIS E OBRIGATÓRIAS:
-    - VOCÊ ESTÁ PROIBIDO DE USAR JSON OU ARQUIVOS. RESPONDA DIRETAMENTE NO TEXTO.
-    - Siga RIGOROSAMENTE as tags exatas abaixo para CADA UMA das 8 cenas (MÁXIMO 8 CENAS PARA NÃO PASSAR DE 60 SEGUNDOS):
-    [SCENE TEXT] <insira aqui a fala do locutor>
-    [SCENE IMAGE] <insira aqui o prompt em inglês>
-
-    - IMPORTANTE: NÃO repita o texto "A fala exata do locutor" nem "Roteiro final" na sua resposta. Comece direto no conteúdo.
-    - SEJA CURTO E DIRETO: A regra de tamanho é rígida. Não ultrapasse 500 caracteres somando todas as falas das 8 cenas.
-    - PROIBIDO: Não adicione conclusões finais ou metadados da IA fora destas tags.
+    SUA MISSÃO:
+    1. A partir deste NICHO, escolha um sub-tópico específico, curioso e impactante. 
+       Exemplo: Se o nicho for "Histórias Bíblicas", escolha "A Coragem de Davi" ou "O Mistério de Melquisedeque".
+    2. Crie um roteiro DETALHADO para um vídeo de 45 a 55 segundos.
     
+    INSTRUÇÕES OBRIGATÓRIAS:
+    - Comece sua resposta EXATAMENTE com a tag do título: [TITLE] <Título Curto e Viral>
+    - Adicione uma tag para as hashtags sugeridas: [HASHTAGS] <3 a 5 hashtags virais separadas por espaço>
+    - Siga com exatamente 8 cenas usando as tags:
+      [SCENE TEXT] <Fala do locutor (máximo 2 frases curtas)>
+      [SCENE IMAGE] <Prompt detalhado da imagem em INGLÊS>
     
-    ESTRUTURA DO CONTEÚDO (EXATAMENTE 8 CENAS):
-    - Cena 1: Hook impactante.
-    - Cena 2 a 7: Curiosidades ou história.
-    - Cena 8: Call to Action final.
+    REGRAS DE OURO:
+    - PROIBIDO repetir instruções ou adicionar introduções. Comece direto com [TITLE].
+    - O texto total das falas não deve ultrapassar 500 caracteres.
+    - Seja criativo e varie o tema e as hashtags dentro do nicho a cada solicitação.
     """
     
     headers = {
@@ -62,7 +63,7 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
     }
 
     try:
-        print(f"[Manus AI] Criando tarefa de roteirização para: {topic}...")
+        print(f"[Manus AI] Criando tarefa de roteirização para o nicho: {topic}...")
         response = requests.post(MANUS_API_URL, headers=headers, json=data)
         response.raise_for_status()
         task_data = response.json()
@@ -85,32 +86,12 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
             if status == "completed" or status == "DONE":
                 print("[Manus AI] Roteiro e prompts de imagem gerados!")
                 
-                import json
-                
-                # ------ DEBUG PROFUNDO ------
-                try:
-                    debug_path = os.path.join(os.path.dirname(__file__), "..", "assets", "debug_manus_script.json")
-                    with open(debug_path, "w", encoding="utf-8") as df:
-                        json.dump(status_data, df, ensure_ascii=False, indent=2)
-                    print(f"[Manus AI Debug] Payload completo da resposta salvo em: {debug_path}")
-                except Exception as e:
-                    print(f"[Manus AI Debug] Erro ao salvar payload: {e}")
-                
-                # Imprime chaves principais para log rápido no console
-                print(f"[Manus AI Debug] Chaves presentes no JSON de resposta: {list(status_data.keys())}")
-                # -----------------------------
-                
-                # Tenta extrair a string completa do JSON a partir dos dados retornados
-                # Como solicitamos exclusivamente JSON, podemos tentar pegar o output e fazer dumps/loads
-                # ou usar regex para localizar as chaves
-                
-                # Tentar achar output cru que seria a resposta textual da IA
+                # Tenta extrair a string completa do JSON
                 raw_text = status_data.get("output")
                 if not raw_text:
                     if "result" in status_data: 
                         raw_text = status_data["result"]
                     else:
-                        # Extração de segurança em todos os campos recursivamente se não vier nas chaves padrões
                         def scrape_all_text(d):
                             if isinstance(d, dict):
                                 return " ".join(scrape_all_text(v) for k, v in d.items() if k not in ['prompt', 'input', 'task_id'])
@@ -121,95 +102,66 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                             return ""
                         raw_text = scrape_all_text(status_data)
 
-                # Garante que raw_text seja uma string com aspas duplas de JSON
                 if not isinstance(raw_text, str):
                     try:
                         raw_text = json.dumps(raw_text, ensure_ascii=False)
-                    except Exception:
+                    except:
                         raw_text = str(raw_text)
+
+                # Extração do TÍTULO e HASHTAGS
+                display_title = topic
+                display_hashtags = "#shorts #viral #ai"
+                
+                if "[TITLE]" in raw_text:
+                    try:
+                        title_part = raw_text.split("[TITLE]")[1].split("[HASHTAGS]")[0].split("[SCENE TEXT]")[0].strip()
+                        if title_part:
+                            display_title = title_part
+                            print(f"[Manus AI] Sub-tema escolhido: {display_title}")
+                    except: pass
+                
+                if "[HASHTAGS]" in raw_text:
+                    try:
+                        hashtags_part = raw_text.split("[HASHTAGS]")[1].split("[SCENE TEXT]")[0].strip()
+                        if hashtags_part:
+                            display_hashtags = hashtags_part
+                            print(f"[Manus AI] Hashtags sugeridas: {display_hashtags}")
+                    except: pass
 
                 final_text = ""
                 image_prompts = []
+                scripts = []
                 
-                # O regex caça tudo que estiver entre [SCENE TEXT] e [SCENE IMAGE] (ou até a próxima SCENE TEXT / fim do texto)
-                import re
-                
-                # Desfaz qualquer possível layer pesada de cast string
+                # Desfaz qualquer possível layer de cast string
                 if isinstance(raw_text, dict) or isinstance(raw_text, list):
                     raw_text = str(raw_text)
                 
-                # Primeiro tentamos quebrar por [SCENE TEXT]
-                parts = raw_text.split("[SCENE TEXT]")
-                scripts = []
+                # Regex para extrair cenas
+                blocks = re.findall(r'\[SCENE TEXT\](.*?)(?:\[SCENE IMAGE\])(.*?)(?=\[SCENE TEXT\]|\Z)', raw_text, re.DOTALL | re.IGNORECASE)
                 
-                for part in parts[1:]: # O índice 0 é lixo prévio
-                    # Cada part começa com a fala, seguida por [SCENE IMAGE] e pelo prompt
-                    if "[SCENE IMAGE]" in part:
-                        subparts = part.split("[SCENE IMAGE]")
-                        t = subparts[0].strip()
-                        # Limpa qualquer escape residual
-                        t = t.replace('\\"', '"').replace("\\'", "'").replace('\\n', ' ')
-                        
-                        # FILTRAGEM DE BOILERPLATE (Se a IA for tonta e repetir minhas instruções)
-                        blacklist = [
-                            "A fala exata do locutor", 
-                            "Roteiro final", 
-                            "1 ou 2 frases curtas",
-                            "insira aqui", 
-                            "Prompt da imagem",
-                            "(717 caracteres)"
-                        ]
-                        
-                        is_junk = False
-                        for junk in blacklist:
-                            if junk.lower() in t.lower():
-                                is_junk = True
-                                break
-                        
-                        if is_junk:
-                            continue
-
-                        # O prompt de imagem vai até a próxima tag de SCENE TEXT (que já foi limado pelo split principal)
-                        # Entao ele é o resto ou até "\n[" se houver lixo
-                        p = subparts[1].split("\n[")[0].strip()
-                        p = p.replace('\\"', '"').replace("\\'", "'").replace('\\n', ' ')
-                        
+                if blocks:
+                    for t, p in blocks:
+                        t = t.replace('\\"', '"').replace("\\'", "'").strip()
+                        p = p.replace('\\"', '"').replace("\\'", "'").strip()
                         if len(t) > 5 and len(p) > 5:
                             scripts.append(t)
                             image_prompts.append(p)
-                
-                if scripts:
                     final_text = " ".join(scripts).strip()
-                    print(f"[Manus AI] Texto Tagueado extraído com sucesso! {len(scripts)} cenas processadas.")
-                else:
-                    # Fallback caso a IA use tags levemente diferentes
-                    blocks = re.findall(r'\[SCENE TEXT\](.*?)(?:\[SCENE IMAGE\])(.*?)(?=\[SCENE TEXT\]|\Z)', raw_text, re.DOTALL | re.IGNORECASE)
-                    if blocks:
-                        for t, p in blocks:
-                            t = t.replace('\\"', '"').replace("\\'", "'").strip()
-                            p = p.replace('\\"', '"').replace("\\'", "'").strip()
-                            if len(t) > 5 and len(p) > 5:
-                                scripts.append(t)
-                                image_prompts.append(p)
-                        final_text = " ".join(scripts).strip()
-                        print(f"[Manus AI] Texto Tagueado (Regex Fallback) extraído: {len(scripts)} cenas.")
-
+                    print(f"[Manus AI] Roteiro extraído: {len(scripts)} cenas.")
+                
                 if not final_text:
-                    print("[Manus AI] Falha ao extrair via Tags. O payload parecia não ter as tags corretas. Tentando fallback heurístico...")
-                    print(f"--- DUMP BRUTO PARA DEBUG (Primeiros 1000 char) ---\n{raw_text[:1000]}\n--------------------------------")
+                    print("[Manus AI] Falha ao extrair via Tags. Usando fallback...")
                     final_text = fallback_script()
 
-                
-                # Validação Crítica
                 if len(final_text) < 150:
-                    print(f"[Manus AI] Roteiro final ({len(final_text)} chars) muito curto. Ativando fallback...")
                     final_text = fallback_script()
                 
                 if not image_prompts:
-                    print("[Manus AI] Sem prompts de imagem detectados. Gerando lista básica...")
-                    image_prompts = [f"Cinematic scene about {topic}", f"Epic landscape of {topic}", f"Vivid visual representation of {topic}"]
+                    image_prompts = [f"Cinematic scene about {display_title}", f"Epic landscape of {display_title}"]
 
                 return {
+                    "title": display_title,
+                    "hashtags": display_hashtags,
                     "text": final_text,
                     "image_prompts": image_prompts
                 }
