@@ -21,37 +21,41 @@ MANUS_API_URL = os.getenv("MANUS_API_URL", "https://api.manus.im/v1/tasks")
 def get_manus_key():
     return os.getenv("MANUS_API_KEY", "")
 
-def generate_script(topic="tópico interessante", max_duration_sec=50):
+def generate_script(topic="tópico interessante", video_type="viral", image_references=None):
     """
-    Solicita um roteiro ao Manus AI através do sistema de Tasks e aguarda o resultado.
+    Solicita um roteiro ao Manus AI com base no tipo de vídeo e referências.
     """
     manus_key = get_manus_key()
     if not manus_key:
         print("[Manus AI] Erro: MANUS_API_KEY não configurada.")
         return None
 
+    # Ajuste do tom com base no tipo
+    if video_type == "creative":
+        tone_instruction = "Foque em copywriting persuasivo, storytelling criativo e destaque as qualidades do produto."
+        if image_references:
+            tone_instruction += f" Considere as seguintes referências visuais em anexo: {', '.join(image_references)}."
+    else:
+        tone_instruction = "Foque em retenção máxima, hooks agressivos no início e conteúdo com alto potencial de compartilhamento (viralidade)."
+
     prompt = f"""
-    Você é um roteirista especializado em vídeos curtos (Shorts/Reels/TikTok) sobre o nicho: "{topic}".
-    Sua tarefa é criar um roteiro cativante, um título viral e hashtags estratégicas.
+    Você é um roteirista especializado em vídeos curtos (Shorts/Reels/TikTok) estilo "{video_type}".
+    Nicho: "{topic}".
+    {tone_instruction}
 
     REGRAS CRÍTICAS:
     1. Escolha um sub-tema específico e curioso dentro do nicho "{topic}".
     2. NUNCA use os textos de exemplo abaixo na sua resposta. Substitua-os por conteúdo REAL.
-    3. Sua resposta deve começar OBRIGATORIAMENTE com as tags abaixo, preenchidas com conteúdo REAL:
-    [TITLE]
-    (Escreva aqui o título real)
-
-    [HASHTAGS]
-    (Escreva aqui as hashtags reais)
+    3. Sua resposta deve conter OBRIGATORIAMENTE os blocos:
+    [TITLE] (Título curto e impactante, sem quebras de linha ou /n)
+    [HASHTAGS] (Hashtags estratégicas)
     
-    4. Siga com exatamente 8 cenas usando as tags:
-    [SCENE TEXT]
-    (Escreva aqui apenas a fala do locutor)
+    4. Siga com exatamente 8 cenas usando rigorosamente:
+    [SCENE TEXT] (Apenas a fala do locutor. Remova qualquer \n, /n ou marcador extra.)
+    [SCENE IMAGE] (Prompt da imagem em INGLÊS focado no conteúdo da cena)
 
-    [SCENE IMAGE]
-    (Escreva aqui o prompt da imagem em INGLÊS)
-
-    ESTILO: Narrativa rápida, curiosa e que retenha a atenção até o final.
+    ESTILO: {'Elegante e Persuasivo' if video_type == 'creative' else 'Rápido e Curioso'}.
+    IMPORTANTE: Não coloque nada além do conteúdo solicitado. Limpe o texto de qualquer resíduo técnico como '/n'.
     """
     
     headers = {
@@ -65,7 +69,7 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
     }
 
     try:
-        print(f"[Manus AI] Criando tarefa de roteirização para o nicho: {topic}...")
+        print(f"[Manus AI] Criando tarefa de roteirização ({video_type}) para: {topic}...")
         response = requests.post(MANUS_API_URL, headers=headers, json=data)
         response.raise_for_status()
         task_data = response.json()
@@ -95,7 +99,6 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
             if status == "completed" or status == "DONE":
                 print("[Manus AI] Roteiro e prompts de imagem gerados!")
                 
-                # Tenta extrair a string completa do JSON
                 raw_text = status_data.get("output")
                 if not raw_text:
                     if "result" in status_data: 
@@ -117,69 +120,66 @@ def generate_script(topic="tópico interessante", max_duration_sec=50):
                     except:
                         raw_text = str(raw_text)
 
-                # Extração do TÍTULO e HASHTAGS (mais robusta com Regex)
+                # Limpeza global de literal /n e \n no texto bruto recebido
+                raw_text = raw_text.replace("/n", " ").replace("\\n", " ").replace("\n", " ").replace("\r", " ")
+
+                # Extração do TÍTULO e HASHTAGS
                 display_title = topic
                 display_hashtags = "#shorts #viral #ai"
                 
-                # Extrai o título ignorando colchetes e instruções
-                title_match = re.search(r"\[TITLE\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
+                title_match = re.search(r"\[TITLE\]\s*(.*?)\s*(?:\[|$)", raw_text, re.IGNORECASE)
                 if title_match:
-                    title_raw = title_match.group(1).strip()
-                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior (MULTILINE)
-                    title_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', title_raw, flags=re.DOTALL).strip()
-                    # Filtra linhas de instrução
-                    lines = [l.strip() for l in title_raw.split("\n") if l.strip()]
-                    blacklisted = ["Título", "Instruções", "tag", "TEMA", "NICHO", "Aqui você", "Exemplo", "Escreva aqui"]
-                    for line in lines:
-                        if any(x.lower() in line.lower() for x in blacklisted):
-                            continue
-                        display_title = line
-                        break
-                    print(f"[Manus AI] Sub-tema extraído: {display_title}")
+                    display_title = title_match.group(1).strip()
+                    # Limpeza agressiva do título
+                    display_title = re.sub(r'[\(\[<].*?[\)\]>]', '', display_title)
+                    display_title = re.sub(r'\s+', ' ', display_title).strip()
 
-                # Extrai hashtags
-                tags_match = re.search(r"\[HASHTAGS\]\s*(.*?)\s*(?:\[|$)", raw_text, re.DOTALL | re.IGNORECASE)
+                tags_match = re.search(r"\[HASHTAGS\]\s*(.*?)\s*(?:\[|$)", raw_text, re.IGNORECASE)
                 if tags_match:
-                    tags_raw = tags_match.group(1).strip()
-                    # Remove QUALQUER coisa entre parênteses, colchetes ou sinais de menor/maior (MULTILINE)
-                    tags_raw = re.sub(r'[\(\[<].*?[\)\]>]', '', tags_raw, flags=re.DOTALL).strip()
-                    lines = [l.strip() for l in tags_raw.split("\n") if l.strip()]
-                    for line in lines:
-                        if any(x in line for x in ["hashtags virais", "Adicione uma tag"]):
-                            continue
-                        display_hashtags = line
-                        break
-                    print(f"[Manus AI] Hashtags extraídas: {display_hashtags}")
+                    display_hashtags = tags_match.group(1).strip()
+                    display_hashtags = re.sub(r'[\(\[<].*?[\)\]>]', '', display_hashtags)
+                    display_hashtags = re.sub(r'\s+', ' ', display_hashtags).strip()
 
                 final_text = ""
                 image_prompts = []
-                scripts = []
                 
-                # Desfaz qualquer possível layer de cast string
-                if isinstance(raw_text, dict) or isinstance(raw_text, list):
+                if isinstance(raw_text, (dict, list)):
                     raw_text = str(raw_text)
                 
                 # Regex para extrair cenas
-                blocks = re.findall(r'\[SCENE TEXT\](.*?)(?:\[SCENE IMAGE\])(.*?)(?=\[SCENE TEXT\]|\Z)', raw_text, re.DOTALL | re.IGNORECASE)
+                blocks = re.findall(r'\[SCENE TEXT\](.*?)(?:\[SCENE IMAGE\])(.*?)(?=\[SCENE TEXT\]|\Z)', raw_text, re.IGNORECASE)
                 
                 if blocks:
                     for t, p in blocks:
-                        # Limpeza ultra profunda do texto da cena
+                        # Limpeza profunda do texto da cena
                         t = t.replace('\\"', '"').replace("\\'", "'").strip()
-                        # Remove QUALQUER coisa entre parênteses (), colchetes [] ou tags < > (MULTILINE)
-                        t = re.sub(r'[\(\[<].*?[\)\]>]', '', t, flags=re.DOTALL)
-                        # Remove frases de exemplo residuais
-                        blacklisted_phrases = ["Fala do locutor", "frases curtas", "Texto que o locutor", "Escreva aqui", "Aqui você"]
-                        for phrase in blacklisted_phrases:
-                            t = t.replace(phrase, "")
-                        
-                        t = t.strip()
+                        # Remove quebras de linha e /n
+                        t = t.replace("/n", " ").replace("\\n", " ")
+                        # Remove comentários entre colchetes/parênteses/tags
+                        t = re.sub(r'[\(\[<].*?[\)\]>]', '', t)
+                        # Remove espaços múltiplos
+                        t = re.sub(r'\s+', ' ', t).strip()
                         
                         if t and p:
                             final_text += t + " "
                             image_prompts.append(p.strip())
-                    final_text = final_text.strip() # Ensure final_text is stripped after concatenation
-                    print(f"[Manus AI] Roteiro extraído: {len(blocks)} cenas.") # Changed to blocks as scripts list is not used here
+                    final_text = final_text.strip()
+                    print(f"[Manus AI] Roteiro extraído: {len(blocks)} cenas.")
+                
+                if not final_text or len(final_text) < 100:
+                    print("[Manus AI] Falha ao extrair via Tags ou conteúdo insuficiente. Usando fallback...")
+                    final_text = fallback_script()
+
+                if not image_prompts:
+                    image_prompts = [f"Cinematic scene about {display_title}"]
+
+                return {
+                    "title": display_title,
+                    "hashtags": display_hashtags,
+                    "text": final_text,
+                    "image_prompts": image_prompts,
+                    "type": video_type
+                }
                 
                 if not final_text:
                     print("[Manus AI] Falha ao extrair via Tags. Usando fallback...")

@@ -11,10 +11,6 @@ on:
         description: 'ID do Usuário (Supabase)'
         required: false
         default: ''
-      voice_id:
-        description: 'ID da Voz (Typecast)'
-        required: false
-        default: 'tc_5f8d7b0de146f10007b8042f'
       voice_language:
         description: 'Idioma da narração'
         required: false
@@ -23,6 +19,22 @@ on:
         description: 'Velocidade da narração'
         required: false
         default: '1.0'
+      video_type:
+        description: 'Tipo de vídeo (viral/creative)'
+        required: false
+        default: 'viral'
+      image_references:
+        description: 'URLs de imagens de referência (separadas por vírgula)'
+        required: false
+        default: ''
+      phase:
+        description: 'Fase da execução (all/script/render)'
+        required: false
+        default: 'all'
+      generation_id:
+        description: 'ID da Geração (Supabase)'
+        required: false
+        default: ''
 
 jobs:
   render:
@@ -61,9 +73,20 @@ jobs:
           TYPECAST_API_KEY: ${{ secrets.TYPECAST_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python main.py --topic "${{ github.event.inputs.topic }}" --user_id "${{ github.event.inputs.user_id }}" --voice_id "${{ github.event.inputs.voice_id }}" --voice_language "${{ github.event.inputs.voice_language }}" --speech_speed "${{ github.event.inputs.speech_speed }}"
+        run: |
+          python main.py \
+            --topic "${{ github.event.inputs.topic }}" \
+            --user_id "${{ github.event.inputs.user_id }}" \
+            --voice_id "${{ github.event.inputs.voice_id }}" \
+            --voice_language "${{ github.event.inputs.voice_language }}" \
+            --speech_speed "${{ github.event.inputs.speech_speed }}" \
+            --video_type "${{ github.event.inputs.video_type }}" \
+            --image_references "${{ github.event.inputs.image_references }}" \
+            --phase "${{ github.event.inputs.phase }}" \
+            --generation_id "${{ github.event.inputs.generation_id }}"
 
       - name: Upload Video
+        if: github.event.inputs.phase != 'script'
         uses: actions/upload-artifact@v4
         with:
           name: generated-video

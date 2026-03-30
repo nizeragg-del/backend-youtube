@@ -14,151 +14,115 @@ if not os.path.exists(".env") and os.path.exists(".env.example"):
 else:
     load_dotenv()
 
-def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_language: str = "", speech_speed_arg: str = "1.0"):
-    print(f"[DEBUG] Executando run_pipeline com topic: {topic}")
+def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_language: str = "", 
+                 speech_speed_arg: str = "1.0", video_type: str = "viral", 
+                 image_references: str = "", phase: str = "all", generation_id: str = ""):
+    print(f"[DEBUG] Executando run_pipeline | Phase: {phase} | Topic: {topic} | Type: {video_type}")
     speech_speed = float(speech_speed_arg) if speech_speed_arg.strip() else 1.0
-    print("=" * 40)
-    print(f"🎬 Iniciando automação (V8 Manus AI) para: {topic}")
     
     # Configuração Supabase
     supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") # Chave secreta para bypass RLS no Actions
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    supabase: Client = create_client(supabase_url, supabase_key) if supabase_url and supabase_key else None
     
-    # Chaves de API
+    # Busca configurações do usuário se necessário
     manus_key = os.getenv("MANUS_API_KEY", "")
     typecast_key = os.getenv("TYPECAST_API_KEY", "")
-    yt_refresh = ""
-    yt_client_id = ""
-    yt_client_secret = ""
+    yt_config = {"refresh": "", "id": "", "secret": ""}
 
-    if user_id and supabase_url and supabase_key:
-        print(f"[Supabase] Buscando chaves para o usuário: {user_id}")
+    if user_id and supabase:
         try:
-            supabase: Client = create_client(supabase_url, supabase_key)
-            # Chamamos a RPC que descriptografa as chaves no banco
             response = supabase.rpc("get_user_secrets", {"p_user_id": user_id}).execute()
-            
             if response.data:
-                config = response.data # RPC costuma retornar o objeto direto ou lista
-                if isinstance(config, list): config = config[0]
-                
+                config = response.data[0] if isinstance(response.data, list) else response.data
                 manus_key = config.get("manus_api_key") or manus_key
                 typecast_key = config.get("typecast_api_key") or typecast_key
-                yt_refresh = config.get("youtube_refresh_token") or ""
-                
-                # YouTube Client ID/Secret continuam globais se não fornecidos
-                yt_client_id = config.get("youtube_client_id") or os.getenv("YOUTUBE_CLIENT_ID", "")
-                yt_client_secret = config.get("youtube_client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET", "")
-                
-                print("[Supabase] 🔐 Chaves descriptografadas carregadas com sucesso!")
-            else:
-                yt_client_id = os.getenv("YOUTUBE_CLIENT_ID", "")
-                yt_client_secret = os.getenv("YOUTUBE_CLIENT_SECRET", "")
-                print("[Supabase] ⚠️ Nenhuma configuração encontrada ou erro na descriptografia. Usando defaults.")
+                yt_config["refresh"] = config.get("youtube_refresh_token") or ""
+                yt_config["id"] = config.get("youtube_client_id") or os.getenv("YOUTUBE_CLIENT_ID", "")
+                yt_config["secret"] = config.get("youtube_client_secret") or os.getenv("YOUTUBE_CLIENT_SECRET", "")
         except Exception as e:
-            print(f"[Supabase] 🔴 Erro ao buscar chaves: {e}")
-    
-    # Sobrescrever envs para os sub-scripts usarem as chaves corretas
+            print(f"[Supabase] Erro ao buscar chaves: {e}")
+
     os.environ["MANUS_API_KEY"] = manus_key
     os.environ["TYPECAST_API_KEY"] = typecast_key
-    if voice_id:
-        os.environ["TYPECAST_ACTOR_ID"] = voice_id
     
-    print(f"[Config] Manus API Key: {'Configurada (Usuário)' if user_id and manus_key else ('Configurada' if manus_key else 'AUSENTE')}")
-    print(f"[Config] Typecast API Key: {'Configurada (Usuário)' if user_id and typecast_key else ('Configurada' if typecast_key else 'AUSENTE')}")
-    print("=" * 40)
-    
-    # Pastas de configuração
     base_dir = os.path.dirname(os.path.abspath(__file__))
     assets_dir = os.path.join(base_dir, "assets")
     output_dir = os.path.join(base_dir, "output", "videos")
-    
     os.makedirs(assets_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
-    
-    # PASSO 1 - Manus AI: Roteiro
-    print("\n[Passo 1] Solicitando novo roteiro e prompts ao Manus AI...")
-    script_data = generate_script(topic)
-    
-    if not script_data or not isinstance(script_data, dict):
-        print("🔴 ERRO: Não foi possível gerar o roteiro via Manus AI. Abortando.")
+
+    script_data = None
+    image_paths = []
+
+    # --- PHASE 1: SCRIPTING ---
+    if phase in ["all", "script"]:
+        print("\n[Passo 1] Gerando roteiro e prompts...")
+        img_refs = [url.strip() for url in image_references.split(",") if url.strip()]
+        script_data = generate_script(topic, video_type=video_type, image_references=img_refs)
+        
+        if not script_data:
+            print("🔴 ERRO: Script não gerado.")
+            if generation_id and supabase:
+                supabase.table("generations").update({"status": "failed"}).eq("id", generation_id).execute()
+            return
+
+        # Salva o resultado no Supabase se houver generation_id
+        if generation_id and supabase:
+            supabase.table("generations").update({
+                "status": "awaiting_audio",
+                "script_data": script_data
+            }).eq("id", generation_id).execute()
+            print(f"[Supabase] Geração {generation_id} atualizada: Aguardando escolha de áudio.")
+            if phase == "script": return # Para aqui e aguarda o front
+
+    # Se estivermos na Fase 2, precisamos recuperar o script_data do banco
+    if phase == "render" and generation_id and supabase:
+        print(f"[Passo 1.5] Recuperando dados da geração {generation_id}...")
+        resp = supabase.table("generations").select("*").eq("id", generation_id).single().execute()
+        if resp.data:
+            script_data = resp.data.get("script_data")
+            video_type = resp.data.get("video_type", video_type)
+
+    if not script_data:
+        print("🔴 ERRO: Dados do roteiro ausentes para renderização.")
         return
 
     script_text = script_data.get("text", "")
     image_prompts = script_data.get("image_prompts", [])
     actual_title = script_data.get("title", topic)
-    actual_hashtags = script_data.get("hashtags", "#shorts #viral #ai")
-    
-    print(f"Sub-tema: {actual_title}")
-    print(f"Hashtags: {actual_hashtags}")
-    print(f"Roteiro final ({len(script_text)} caracteres):\n{script_text}\n")
-    print(f"Encontrados {len(image_prompts)} prompts de imagem.\n")
-    
-    script_path = os.path.join(assets_dir, "script.txt")
-    with open(script_path, "w", encoding="utf-8") as f:
-        f.write(str(script_text))
-        
-    # PASSO 2 - Geração de Imagens via Manus AI
-    print("[Passo 2] Gerando novas imagens da produção...")
-    image_paths = []
-    public_images_dir = os.path.join(base_dir, "remotion", "public", "assets", "images")
-    
-    # Limpa a pasta de imagens para garantir que não use lixo de produções anteriores
-    if os.path.exists(public_images_dir):
-        shutil.rmtree(public_images_dir)
-    os.makedirs(public_images_dir, exist_ok=True)
-    
-    # Gera novas imagens obrigatoriamente
-    for i in range(10):
-        if image_prompts and i < len(image_prompts):
-            print(f"  -> Gerando imagem {i+1}/{len(image_prompts)}...")
-            prompt = str(image_prompts[i])
-            path = generate_manus_image(prompt, i, public_images_dir)
-            if path:
-                image_paths.append(path)
-        elif not image_prompts and not image_paths:
-            # Fallback se não tiver nada
-            print(f"  -> Sem prompt para cena {i}. Usando padrão.")
-            path = generate_manus_image(f"Cinematic representation of {actual_title}", i, public_images_dir)
-            if path: image_paths.append(path)
+    actual_hashtags = script_data.get("hashtags", "#shorts #viral")
 
-    # PASSO 3 - Typecast AI: Narração e Sync
-    print(f"[Passo 3] Gerando narração via Typecast AI (velocidade: {speech_speed}x)...")
+    # --- PASSO 2: IMAGENS ---
+    print("[Passo 2] Gerando imagens...")
+    public_images_dir = os.path.join(base_dir, "remotion", "public", "assets", "images")
+    if os.path.exists(public_images_dir): shutil.rmtree(public_images_dir)
+    os.makedirs(public_images_dir, exist_ok=True)
+
+    for i in range(min(10, len(image_prompts) or 1)):
+        prompt = image_prompts[i] if image_prompts and i < len(image_prompts) else f"Cinematic {actual_title}"
+        path = generate_manus_image(str(prompt), i, public_images_dir)
+        if path: image_paths.append(path)
+
+    # --- PASSO 3: VOZ ---
+    print(f"[Passo 3] Gerando narração ({voice_id})...")
     audio_path_raw, sync_path_raw = generate_voice(str(script_text), assets_dir, speech_speed=speech_speed)
     
     if not audio_path_raw or not sync_path_raw:
-        print("🔴 ERRO: Não foi possível gerar o áudio/sincronia via Typecast AI. Abortando.")
+        print("🔴 ERRO: Áudio não gerado.")
         return
     
-    audio_path = str(audio_path_raw)
-    sync_path = str(sync_path_raw)
-    
-    # Validação de duração para Shorts
-    duration = get_audio_duration(audio_path)
-    if duration and duration > 60:
-        print(f"⚠️ AVISO: O vídeo final terá {duration:.2f}s, o que supera o limite de 60s dos Shorts!")
-    
-    # Copia os assets para a pasta public do remotion para o renderizador achar
+    audio_path, sync_path = str(audio_path_raw), str(sync_path_raw)
     public_assets_dir = os.path.join(base_dir, "remotion", "public", "assets")
     os.makedirs(public_assets_dir, exist_ok=True)
-    
     shutil.copy2(audio_path, os.path.join(public_assets_dir, "speech.mp3"))
     shutil.copy2(sync_path, os.path.join(public_assets_dir, "sync.json"))
-    
-    print("Arquivos de áudio e sincronização copiados para public/assets.")
-    
-    # PASSO 4 - Remotion: Renderização do Vídeo
-    print("\n[Passo 4] Renderizando o vídeo no Remotion...")
-    
-    # Prepara um arquivo JSON de inputProps para o Remotion CLI
+
+    # --- PASSO 4: RENDER ---
+    print("\n[Passo 4] Renderizando no Remotion...")
     input_props_path = os.path.join(assets_dir, "inputProps.json")
-    
-    # Lendo o sync.json
-    try:
-        with open(sync_path, "r", encoding="utf-8") as f:
-            sync_data = json.load(f)
-    except FileNotFoundError:
-        sync_data = []
+    with open(sync_path, "r", encoding="utf-8") as f:
+        sync_data = json.load(f)
         
     props = {
         "title": actual_title,
@@ -171,79 +135,44 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
     with open(input_props_path, "w", encoding="utf-8") as f:
         json.dump(props, f, indent=2, ensure_ascii=False)
         
-    # Criar um nome de arquivo seguro (Slug)
     import re
-    safe_topic = re.sub(r'[^a-zA-Z0-9]', '_', str(actual_title)).strip('_')
-    if not safe_topic: safe_topic = "video"
-    short_name = safe_topic[0:25] if len(safe_topic) > 25 else safe_topic
-    video_out_name = f"{short_name}.mp4"
+    safe_title = re.sub(r'[^a-zA-Z0-9]', '_', str(actual_title))[:25]
+    video_out_path = os.path.join(output_dir, f"{safe_title}.mp4")
     
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-    
-    video_out_path = os.path.join(output_dir, video_out_name)
-    
-    # O comando do Remotion para renderizar a composição `MyComp` a partir dos props
     remotion_dir = os.path.join(base_dir, "remotion")
-    props_arg = os.path.abspath(input_props_path).replace("\\", "/")
-    out_arg = os.path.abspath(video_out_path).replace("\\", "/")
+    cmd = f'npx remotion render src/index.ts ShortsComp "{video_out_path.replace("\\", "/")}" --props "{os.path.abspath(input_props_path).replace("\\", "/")}"'
     
-    cmd = [
-        "npx", "remotion", "render",
-        "src/index.ts", "ShortsComp", f'"{out_arg}"',
-        "--props", f'"{props_arg}"'
-    ]
-    
-    cmd_str = " ".join(cmd)
-    print(f"Executando no Remotion: {cmd_str}")
-    
-    # subprocess call
     try:
-        subprocess.run(cmd_str, cwd=remotion_dir, check=True, shell=True)
-        print("\n" + "=" * 40)
-        print(f"🟢 SUCESSO! Vídeo gerado em: {video_out_path}")
-        print("=" * 40)
+        subprocess.run(cmd, cwd=remotion_dir, check=True, shell=True)
+        print(f"🟢 VÍDEO PRONTO: {video_out_path}")
         
-        # PASSO Final - YouTube Upload (Opcional)
-        if yt_refresh and yt_client_id and yt_client_secret:
-            try:
-                print(f"[DEBUG] actual_title original: '{actual_title}'")
-                # Validação extra do título para evitar erros no YouTube (Agreessiva)
-                # 1. Remove colchetes e outros caracteres proibidos
-                clean_title = str(actual_title).replace("<", "").replace(">", "").strip()
-                # 2. Remove quebras de linha, tabs e espaços duplos que quebram o YouTube
-                import re
-                clean_title = re.sub(r'[\r\n\t]+', ' ', clean_title) # Transforma tudo em uma linha só
-                clean_title = re.sub(r'\s+', ' ', clean_title).strip()
-                
-                # 3. Fallback se tiver placeholder ou for curto demais
-                blacklist = ["Título Curto", "Instruções", "<", ">", "Seu Título Real Aqui", "Título Real", "Exemplo", "Escreva aqui"]
-                if not clean_title or any(x.lower() in clean_title.lower() for x in blacklist) or len(clean_title) < 3:
-                    print(f"[YouTube] ⚠️ Título inválido ou placeholder detectado ('{actual_title}'). Usando tópico como fallback.")
-                    clean_title = topic
-                
-                # 4. Limite do YouTube (100 chars)
-                if len(clean_title) > 95:
-                    clean_title = clean_title[:95] + "..."
-                
-                print(f"[DEBUG] clean_title final para upload: '{clean_title}'")
-                
-                upload_to_youtube(
-                    video_path=video_out_path,
-                    title=clean_title, 
-                    description=f"Vídeo gerado automaticamente sobre: {clean_title}\n\n{actual_hashtags}",
-                    client_id=yt_client_id,
-                    client_secret=yt_client_secret,
-                    refresh_token=yt_refresh
-                )
-            except Exception as e:
-                print(f"🔴 Erro no upload para o YouTube: {e}")
-        else:
-            print("[YouTube] Pulando upload automático (Chaves não configuradas).")
-    except subprocess.CalledProcessError as e:
-        print("\n" + "=" * 40)
-        print(f"🔴 ERRO na renderização do vídeo: {e}")
-        print("=" * 40)
+        # Upload para Supabase Storage se for interativo
+        if generation_id and supabase:
+            print("[Supabase] Fazendo upload do vídeo...")
+            with open(video_out_path, "rb") as f:
+                storage_path = f"videos/{user_id}/{os.path.basename(video_out_path)}"
+                supabase.storage.from_("generations").upload(storage_path, f.read(), {"content-type": "video/mp4", "x-upsert": "true"})
+                video_url = supabase.storage.from_("generations").get_public_url(storage_path)
+                supabase.table("generations").update({"status": "completed", "video_url": video_url}).eq("id", generation_id).execute()
+
+        # YouTube Upload somente para automação (quando NÃO há generation_id vindo do chat interativo)
+        is_automation = not generation_id
+        if is_automation and yt_config["refresh"]:
+            print("[YouTube] Iniciando upload automático (Automação)...")
+            clean_title = re.sub(r'[\r\n\t]+', ' ', str(actual_title))
+            clean_title = re.sub(r'\s+', ' ', clean_title).strip()[:95]
+            upload_to_youtube(
+                video_path=video_out_path,
+                title=clean_title,
+                description=f"Automated video: {clean_title}\n\n{actual_hashtags}",
+                client_id=yt_config["id"],
+                client_secret=yt_config["secret"],
+                refresh_token=yt_config["refresh"]
+            )
+    except Exception as e:
+        print(f"🔴 ERRO: {e}")
+        if generation_id and supabase:
+            supabase.table("generations").update({"status": "failed"}).eq("id", generation_id).execute()
 
 if __name__ == "__main__":
     import argparse
@@ -253,6 +182,20 @@ if __name__ == "__main__":
     parser.add_argument("--voice_id", type=str, default="")
     parser.add_argument("--voice_language", type=str, default="")
     parser.add_argument("--speech_speed", type=str, default="1.0")
+    parser.add_argument("--video_type", type=str, default="viral")
+    parser.add_argument("--image_references", type=str, default="")
+    parser.add_argument("--phase", type=str, default="all")
+    parser.add_argument("--generation_id", type=str, default="")
     args = parser.parse_args()
     
-    run_pipeline(args.topic, args.user_id, args.voice_id, args.voice_language, args.speech_speed)
+    run_pipeline(
+        topic=args.topic, 
+        user_id=args.user_id, 
+        voice_id=args.voice_id, 
+        voice_language=args.voice_language, 
+        speech_speed_arg=args.speech_speed,
+        video_type=args.video_type,
+        image_references=args.image_references,
+        phase=args.phase,
+        generation_id=args.generation_id
+    )
