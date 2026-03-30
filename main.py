@@ -140,7 +140,9 @@ def run_pipeline(topic: str, user_id: str = "", voice_id: str = "", voice_langua
     video_out_path = os.path.join(output_dir, f"{safe_title}.mp4")
     
     remotion_dir = os.path.join(base_dir, "remotion")
-    cmd = f'npx remotion render src/index.ts ShortsComp "{video_out_path.replace("\\", "/")}" --props "{os.path.abspath(input_props_path).replace("\\", "/")}"'
+    video_out_path_render = video_out_path.replace("\\", "/")
+    input_props_path_render = os.path.abspath(input_props_path).replace("\\", "/")
+    cmd = f'npx remotion render src/index.ts ShortsComp "{video_out_path_render}" --props "{input_props_path_render}"'
     
     try:
         subprocess.run(cmd, cwd=remotion_dir, check=True, shell=True)
