@@ -11,6 +11,10 @@ on:
         description: 'ID do Usuário (Supabase)'
         required: false
         default: ''
+      voice_id:
+        description: 'ID da voz (Typecast/ElevenLabs)'
+        required: false
+        default: 'tc_5f8d7b0de146f10007b8042f'
       voice_language:
         description: 'Idioma da narração'
         required: false
